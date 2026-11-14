@@ -16,10 +16,53 @@ O terminal mostra os endereços de acesso:
 - no computador: `http://localhost:3000`
 - nos celulares (no mesmo Wi-Fi): `http://IP-DO-COMPUTADOR:3000`
 
-Os dados ficam em `geladao/dados/geladao.db`. **Faça cópia desse arquivo** para ter backup.
+Os dados ficam em `geladao/dados/geladao.db`, e o sistema faz um backup automático por dia em `geladao/dados/backups/`.
 
-Variáveis opcionais: `PORT` (porta, padrão 3000), `DB_FILE` (caminho do banco) e
-`SESSAO_MINUTOS` (tempo sem uso até bloquear a tela, padrão 10).
+Variáveis opcionais: `PORT` (porta, padrão 3000), `DATA_DIR` (pasta do banco e dos backups, padrão `dados/`),
+`SESSAO_MINUTOS` (tempo sem uso até bloquear a tela, padrão 10) e `BACKUP_MANTER` (backups diários guardados, padrão 30).
+
+## Publicar na nuvem (Railway)
+
+Assim o sistema funciona em qualquer lugar, com HTTPS, mesmo fora do Wi-Fi da loja. O custo fica em torno de US$ 5/mês (plano Hobby).
+
+1. Crie a conta em [railway.com](https://railway.com) entrando com o GitHub.
+2. **New Project → Deploy from GitHub repo** e escolha o repositório `first-contributions`.
+3. No serviço criado, abra **Settings**:
+   - **Source → Root Directory:** `/geladao`
+   - **Source → Branch:** o branch com o Geladão (ou `main`, depois de juntar as mudanças)
+   - **Config-as-code → Railway Config File:** `/geladao/railway.json`
+4. **Adicione um volume** (botão direito no serviço → *Attach Volume*, ou `Ctrl/Cmd + K` → "volume")
+   com **Mount path `/data`**. ⚠️ Sem o volume, os dados se perdem a cada atualização.
+5. **Settings → Networking → Generate Domain.** Esse é o endereço do sistema (ex.: `geladao-production.up.railway.app`).
+6. Abra o endereço no celular, faça o **primeiro uso** (crie o sócio e o PIN) e, no navegador,
+   use *Adicionar à tela inicial* para virar um "app".
+
+Pronto: a cada atualização enviada ao GitHub, o Railway publica sozinho.
+
+**Já usa o sistema no computador e quer levar os dados?** Antes do primeiro uso na nuvem, envie o arquivo
+`dados/geladao.db` para o volume (pelo [Railway CLI](https://docs.railway.com/guides/cli): `railway ssh`) ou peça ajuda.
+
+**Importante:** mantenha **1 réplica** (o banco SQLite fica no volume de um único servidor). O `railway.json` já configura isso.
+
+Variáveis opcionais no Railway: `SESSAO_MINUTOS` (bloqueio, padrão 10) e `BACKUP_MANTER` (quantos backups diários guardar, padrão 30).
+O fuso horário já está fixado em Brasília no `Dockerfile`.
+
+### Outras plataformas
+
+O `Dockerfile` funciona em qualquer serviço com Docker (Fly.io, VPS etc.). Basta montar um disco permanente em `/data`:
+
+```bash
+docker build -t geladao .
+docker run -d -p 3000:3000 -v geladao-dados:/data --restart unless-stopped geladao
+```
+
+## Backup
+
+- **Automático:** uma cópia por dia em `backups/` (no Railway, dentro do volume `/data/backups`). Guarda as últimas 30.
+- **Manual:** em *Mais › Backup*, o sócio baixa uma cópia de agora ou qualquer cópia diária.
+  Guarde de vez em quando fora do servidor (Google Drive, computador).
+- **Restaurar:** pare o sistema, substitua o arquivo `geladao.db` pelo backup (renomeando para `geladao.db`),
+  apague `geladao.db-wal` e `geladao.db-shm` se existirem e inicie de novo.
 
 ## Acesso com PIN
 
@@ -91,13 +134,15 @@ geladao/
 │   ├── logica.js    # regras de negócio
 │   ├── planilhas.js # dados das planilhas
 │   ├── xlsx.js      # gerador de Excel (sem dependências)
+│   ├── backup.js    # backup diário do banco
 │   └── server.js    # servidor HTTP + API
 ├── public/          # app web (HTML/CSS/JS)
-└── test/            # testes automatizados
+├── test/            # testes automatizados
+├── Dockerfile       # imagem para publicar (fuso de Brasília, dados em /data)
+└── railway.json     # configuração do Railway
 ```
 
 ## Próximos passos sugeridos
 
-- Hospedar na nuvem para acessar fora do Wi-Fi
 - Leitor de código de barras (quando tiver o leitor)
 - Mais planilhas (vendas, entradas, caixa, sócios)

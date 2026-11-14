@@ -1,0 +1,5 @@
+dados
+test
+node_modules
+*.db
+*.db-*

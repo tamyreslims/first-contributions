@@ -8,6 +8,7 @@ const os = require('node:os');
 const { abrirBanco } = require('./db');
 const { criarLogica } = require('./logica');
 const { planilhaEstoque } = require('./planilhas');
+const { criarBackup, dataLocal } = require('./backup');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -19,12 +20,15 @@ const semCusto = (p) => Object.fromEntries(Object.entries(p).filter(([k]) => !CA
 
 function criarServidor(db, opcoes = {}) {
   const L = criarLogica(db, opcoes);
+  const backup = opcoes.backup || null;
   const PUB = { publica: true };
   const SOCIO = { socio: true };
 
   // [método, padrão, handler(params, corpo, query, usuario, token), opções]
   // Sem opções: precisa estar logado. PUB: aberta. SOCIO: só sócios.
   const rotas = [
+    ['GET', '/api/saude', () => { db.prepare('SELECT 1').get(); return { ok: true }; }, PUB],
+
     // ---- acesso ----
     ['GET', '/api/inicio', () => ({
       configurado: L.temPessoas(),
@@ -72,6 +76,22 @@ function criarServidor(db, opcoes = {}) {
       arquivo: planilhaEstoque(db, L, q),
       nome: `geladao-estoque_${q.de && q.de !== '0000-01-01' ? q.de : 'inicio'}_a_${q.ate && q.ate !== '9999-12-31' ? q.ate : 'hoje'}.xlsx`,
     }), SOCIO],
+    // ---- backup (sócio) ----
+    ['GET', '/api/backups', () => {
+      if (!backup) return { ativo: false, lista: [] };
+      return { ativo: true, lista: backup.listar() };
+    }, SOCIO],
+    ['GET', '/api/backups/agora', () => {
+      if (!backup) throw Object.assign(new Error('Backup não configurado.'), { status: 400 });
+      const h = new Date();
+      return { arquivo: backup.copiaAgora(), tipo: 'application/octet-stream',
+        nome: `geladao-backup_${dataLocal(h)}_${String(h.getHours()).padStart(2, '0')}h${String(h.getMinutes()).padStart(2, '0')}.db` };
+    }, SOCIO],
+    ['GET', '/api/backups/arquivo', (_, __, q) => {
+      const arq = backup && backup.lerArquivo(String(q.nome || ''));
+      if (!arq) throw Object.assign(new Error('Backup não encontrado.'), { status: 404 });
+      return { arquivo: arq, nome: q.nome, tipo: 'application/octet-stream' };
+    }, SOCIO],
     ['GET', '/api/alertas', (_, __, q, u) => {
       const a = L.alertas(q.dias ? Number(q.dias) : 7);
       return u.socio ? a : { ...a, estoque_baixo: a.estoque_baixo.map(semCusto) };
@@ -150,7 +170,7 @@ function criarServidor(db, opcoes = {}) {
       const resultado = rota.h(params, corpo, Object.fromEntries(url.searchParams), usuario, token);
       if (resultado && Buffer.isBuffer(resultado.arquivo)) {
         res.writeHead(200, {
-          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Type': resultado.tipo || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           'Content-Disposition': `attachment; filename="${resultado.nome}"`,
           'Content-Length': resultado.arquivo.length,
           'Cache-Control': 'no-store',
@@ -167,9 +187,17 @@ function criarServidor(db, opcoes = {}) {
 
 if (require.main === module) {
   const porta = Number(process.env.PORT) || 3000;
-  const arquivoBanco = process.env.DB_FILE || path.join(__dirname, '..', 'dados', 'geladao.db');
+  // Pasta de dados: DATA_DIR, ou o volume do Railway, ou ./dados
+  const pastaDados = process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, '..', 'dados');
+  const arquivoBanco = process.env.DB_FILE || path.join(pastaDados, 'geladao.db');
   const db = abrirBanco(arquivoBanco);
-  criarServidor(db, { sessaoMinutos: process.env.SESSAO_MINUTOS }).listen(porta, '0.0.0.0', () => {
+  const backup = criarBackup(db, {
+    pasta: process.env.BACKUP_DIR || path.join(path.dirname(arquivoBanco), 'backups'),
+    manter: Number(process.env.BACKUP_MANTER) || 30,
+  });
+  backup.agendar();
+  const servidor = criarServidor(db, { sessaoMinutos: process.env.SESSAO_MINUTOS, backup });
+  servidor.listen(porta, '0.0.0.0', () => {
     console.log(`\n🧊 Geladão rodando!`);
     console.log(`   Neste computador:  http://localhost:${porta}`);
     for (const lista of Object.values(os.networkInterfaces())) {
@@ -177,8 +205,17 @@ if (require.main === module) {
         if (i.family === 'IPv4' && !i.internal) console.log(`   Nos celulares (mesmo Wi-Fi):  http://${i.address}:${porta}`);
       }
     }
-    console.log(`   Banco de dados: ${arquivoBanco}\n`);
+    console.log(`   Banco de dados: ${arquivoBanco}`);
+    console.log(`   Backups:        ${backup.pasta}\n`);
   });
+  // Desligamento limpo (o Railway envia SIGTERM ao publicar nova versão)
+  const desligar = (sinal) => {
+    console.log(`Recebido ${sinal}, encerrando...`);
+    servidor.close(() => { try { db.close(); } catch {} process.exit(0); });
+    setTimeout(() => process.exit(0), 8000).unref();
+  };
+  process.on('SIGTERM', desligar);
+  process.on('SIGINT', desligar);
 }
 
 module.exports = { criarServidor };

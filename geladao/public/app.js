@@ -529,15 +529,16 @@ const App = (() => {
         ${despesas.map((d) => `<li class="entre"><span>${esc(d.descricao)}<div class="suave">${dataBR(d.data)} · ${esc(d.pago_por_nome)}</div></span><b>${reais(d.valor)}</b></li>`).join('') || '<li class="vazio">Nenhuma despesa.</li>'}</ul></div>`;
   }
   // Download com o token de acesso (link simples não envia o cabeçalho)
-  async function baixarPlanilha(q) {
+  const baixarPlanilha = (q) => baixarArquivo('/api/planilhas/estoque' + q, 'geladao-estoque.xlsx');
+  async function baixarArquivo(url, nomePadrao) {
     await tentar(async () => {
-      const r = await fetch('/api/planilhas/estoque' + q, { headers: { Authorization: 'Bearer ' + S.token } });
-      if (!r.ok) { const d = await r.json().catch(() => ({})); if (r.status === 401) bloquear(); throw new Error(d.erro || 'Falha ao gerar planilha'); }
-      const nome = (r.headers.get('content-disposition') || '').match(/filename="([^"]+)"/)?.[1] || 'geladao-estoque.xlsx';
-      const url = URL.createObjectURL(await r.blob());
-      const a = Object.assign(document.createElement('a'), { href: url, download: nome });
+      const r = await fetch(url, { headers: { Authorization: 'Bearer ' + S.token } });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); if (r.status === 401) bloquear(); throw new Error(d.erro || 'Falha ao baixar arquivo'); }
+      const nome = (r.headers.get('content-disposition') || '').match(/filename="([^"]+)"/)?.[1] || nomePadrao;
+      const link = URL.createObjectURL(await r.blob());
+      const a = Object.assign(document.createElement('a'), { href: link, download: nome });
       document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      setTimeout(() => URL.revokeObjectURL(link), 5000);
     });
   }
   async function cancelarVenda(id) {
@@ -671,10 +672,24 @@ const App = (() => {
       ${ehSocio() ? `<button onclick="App.telaProdutos()"><span>🍺</span>Produtos</button>
       <button onclick="App.telaPessoas()"><span>👥</span>Sócios e vendedores</button>
       <button onclick="App.telaTiposCusto()"><span>🚚</span>Custos extras</button>
-      <button onclick="App.telaDespesas()"><span>💡</span>Despesas gerais</button>` : ''}
+      <button onclick="App.telaDespesas()"><span>💡</span>Despesas gerais</button>
+      <button onclick="App.telaBackup()"><span>💾</span>Backup</button>` : ''}
       <button onclick="App.dialogoMeuPin()"><span>🔑</span>Trocar meu PIN</button>
       <button onclick="App.bloquear()"><span>🔒</span>Bloquear tela</button>
       <button onclick="App.trocarUsuario()"><span>🔄</span>Trocar usuário</button></div>`;
+  }
+  async function telaBackup() {
+    const b = await api('GET', '/api/backups');
+    const tam = (n) => (n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.ceil(n / 1024) + ' KB');
+    $('#tela').innerHTML = `${voltar}<h2 style="margin-top:12px">💾 Backup</h2>
+      <div class="cartao"><p>O sistema faz <b>uma cópia do banco por dia</b> automaticamente e guarda as mais recentes.</p>
+        <p class="suave">Para ter uma cópia fora do servidor, baixe de vez em quando e guarde no Google Drive ou no computador.</p>
+        <button class="btn largo" onclick="App.baixarArquivo('/api/backups/agora', 'geladao-backup.db')">⬇ Baixar cópia de agora</button></div>
+      <h3>Cópias automáticas</h3>
+      <div class="cartao"><ul class="lista">${b.lista.map((x) => `<li class="entre"><span>${dataBR(x.data)} <span class="suave">${tam(x.bytes)}</span></span>
+        <button class="btn peq sec" style="flex:0" onclick="App.baixarArquivo('/api/backups/arquivo?nome=${encodeURIComponent(x.nome)}', '${x.nome}')">Baixar</button></li>`).join('')
+        || `<li class="vazio">${b.ativo ? 'Nenhuma cópia ainda.' : 'Backup automático desligado neste servidor.'}</li>`}</ul></div>
+      <p class="suave">Para restaurar uma cópia: pare o sistema, troque o arquivo <code>geladao.db</code> pelo backup e inicie de novo (passo a passo no README).</p>`;
   }
   function dialogoMeuPin() {
     abrirDialogo(`<h2>Trocar meu PIN</h2>
@@ -803,5 +818,5 @@ const App = (() => {
     setDesconto, limparVenda, finalizarVenda, dialogoPerda, salvarPerda, setEntrada, setItem, addItemEntrada, rmItem, addExtra, setExtra, rmExtra,
     salvarEntrada, setPeriodo, setDatas, cancelarVenda, telaProdutos, dialogoProduto, salvarProduto, telaPessoas, dialogoPessoa, salvarPessoa,
     telaTiposCusto, salvarTipoCusto, excluirTipoCusto, telaDespesas, salvarDespesa, fecharDialogo,
-    telaCaixa, abrirCaixa, dialogoMeuPin, salvarMeuPin, baixarPlanilha, dialogoMovimento, salvarMovimento, somarCedulas, previaFechamento, fecharCaixa, verFechamento };
+    telaCaixa, abrirCaixa, dialogoMeuPin, salvarMeuPin, baixarPlanilha, baixarArquivo, telaBackup, dialogoMovimento, salvarMovimento, somarCedulas, previaFechamento, fecharCaixa, verFechamento };
 })();
