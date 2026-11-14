@@ -1,0 +1,1074 @@
+<title>Geladão</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: app de balcão — cabeçalho fixo, conteúdo em cartões, abas embaixo ao alcance do polegar */
+:root {
+  --gelo: #0b6fb8;        /* azul gelo, acento */
+  --gelo-claro: #e1eefa;
+  --fundo: #f2f6fa;
+  --cartao: #ffffff;
+  --texto: #17212d;
+  --suave: #5e6d80;
+  --borda: #d6dfe9;
+  --verde: #17834a;
+  --vermelho: #c0392b;
+  --amarelo: #a86a12;
+  --amarelo-fundo: #fff4dc;
+  --vermelho-fundo: #fdeceb;
+  --sobre-gelo: #ffffff;
+  --f-titulo: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --f-texto: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --gelo: #5aaef0; --gelo-claro: #15314c; --fundo: #0e141b; --cartao: #18212c; --texto: #e5edf6;
+    --suave: #94a3b6; --borda: #2a3646; --verde: #4cc283; --vermelho: #f2786d; --amarelo: #efb552;
+    --amarelo-fundo: #392c12; --vermelho-fundo: #3d1e1c; --sobre-gelo: #08131f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --gelo: #5aaef0; --gelo-claro: #15314c; --fundo: #0e141b; --cartao: #18212c; --texto: #e5edf6;
+  --suave: #94a3b6; --borda: #2a3646; --verde: #4cc283; --vermelho: #f2786d; --amarelo: #efb552;
+  --amarelo-fundo: #392c12; --vermelho-fundo: #3d1e1c; --sobre-gelo: #08131f; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--fundo); color: var(--texto); font-family: var(--f-texto); font-size: 16px; line-height: 1.4;
+  padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--gelo); }
+.topo {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: var(--gelo); color: var(--sobre-gelo);
+  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.topo h1 { font-family: var(--f-titulo); font-size: 1.25rem; margin: 0; letter-spacing: .01em; }
+.status { font-size: .78rem; opacity: .9; }
+main {
+  max-width: 980px; margin: 0 auto;
+  padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h2 { font-family: var(--f-titulo); font-size: 1.2rem; margin: 4px 0 12px; text-wrap: balance; }
+h3 { font-size: .8rem; margin: 18px 0 8px; color: var(--suave); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+.cartao h3:first-child { margin-top: 0; }
+.abas {
+  position: fixed; bottom: 0; left: 0; right: 0; display: grid; grid-template-columns: repeat(5, 1fr); z-index: 5;
+  background: var(--cartao); border-top: 1px solid var(--borda);
+  padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
+}
+.abas button { background: none; border: 0; padding: 8px 0 10px; font: inherit; font-size: .72rem; color: var(--suave); display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; }
+.abas button svg { width: 22px; height: 22px; }
+.abas button.ativa { color: var(--gelo); font-weight: 600; }
+.cartao { background: var(--cartao); border: 1px solid var(--borda); border-radius: 12px; padding: 14px; margin-bottom: 12px; min-width: 0; }
+.linha { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.linha > * { flex: 1 1 130px; min-width: 0; }
+.entre { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.suave { color: var(--suave); font-size: .86rem; }
+.pos { color: var(--verde); } .neg { color: var(--vermelho); }
+.num { font-variant-numeric: tabular-nums; }
+label { display: block; font-size: .84rem; color: var(--suave); margin-bottom: 8px; }
+input, select { width: 100%; font: inherit; padding: 10px; border-radius: 8px; border: 1px solid var(--borda); background: var(--fundo); color: var(--texto); margin-top: 4px; }
+input[type="checkbox"] { width: auto; margin: 0 6px 0 0; }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--gelo); outline-offset: 1px; }
+.btn { display: inline-block; font: inherit; border: 0; border-radius: 10px; padding: 11px 16px; background: var(--gelo); color: var(--sobre-gelo); font-weight: 600; cursor: pointer; text-align: center; }
+.btn.sec { background: var(--gelo-claro); color: var(--gelo); }
+.btn.perigo { background: var(--vermelho-fundo); color: var(--vermelho); }
+.btn.peq { padding: 6px 10px; font-size: .85rem; }
+.btn.largo { width: 100%; }
+.btn:disabled { opacity: .5; cursor: default; }
+.grade-produtos { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; }
+.produto-btn { text-align: left; background: var(--cartao); border: 1px solid var(--borda); border-radius: 10px; padding: 10px; font: inherit; color: var(--texto); cursor: pointer; min-height: 80px; }
+.produto-btn strong { display: block; font-size: .95rem; font-weight: 600; }
+.produto-btn .preco { color: var(--gelo); font-weight: 700; font-family: var(--f-titulo); }
+.produto-btn:disabled { opacity: .45; cursor: default; }
+.carrinho-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--borda); }
+.carrinho-item .nome { flex: 1; min-width: 0; }
+.qtd { display: flex; align-items: center; gap: 6px; }
+.qtd button { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--borda); background: var(--fundo); color: var(--texto); font-size: 1.1rem; cursor: pointer; }
+.total-grande { font-family: var(--f-titulo); font-size: 1.7rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.metodos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.metodos button { padding: 10px 2px; border-radius: 8px; border: 1px solid var(--borda); background: var(--fundo); color: var(--texto); font: inherit; font-size: .85rem; cursor: pointer; }
+.metodos button.sel { background: var(--gelo); color: var(--sobre-gelo); border-color: var(--gelo); }
+.layout-venda { display: grid; gap: 12px; }
+@media (min-width: 820px) { .layout-venda { grid-template-columns: 1.4fr 1fr; align-items: start; } .layout-venda > :last-child { position: sticky; top: calc(64px + env(safe-area-inset-top, 0px)); } }
+.lista { list-style: none; margin: 0; padding: 0; }
+.lista li { padding: 10px 0; border-bottom: 1px solid var(--borda); }
+.lista li:last-child { border-bottom: 0; }
+.selo { display: inline-block; font-size: .72rem; padding: 2px 8px; border-radius: 999px; background: var(--gelo-claro); color: var(--gelo); margin-left: 4px; vertical-align: 1px; }
+.selo.alerta { background: var(--amarelo-fundo); color: var(--amarelo); }
+.selo.erro { background: var(--vermelho-fundo); color: var(--vermelho); }
+.cancelada { opacity: .55; }
+.cancelada b { text-decoration: line-through; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.kpi { background: var(--cartao); border: 1px solid var(--borda); border-radius: 12px; padding: 12px; }
+.kpi .v { font-family: var(--f-titulo); font-size: 1.25rem; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.kpi.destaque { background: var(--gelo); color: var(--sobre-gelo); border-color: var(--gelo); }
+.kpi.destaque .suave { color: inherit; opacity: .85; }
+.chips { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 12px; padding-bottom: 2px; }
+.chips button { flex: none; border: 1px solid var(--borda); background: var(--cartao); color: var(--texto); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: .88rem; cursor: pointer; }
+.chips button.sel { background: var(--gelo); color: var(--sobre-gelo); border-color: var(--gelo); }
+.menu-mais { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.menu-mais button { text-align: left; padding: 16px; border-radius: 12px; border: 1px solid var(--borda); background: var(--cartao); color: var(--texto); font: inherit; cursor: pointer; }
+.menu-mais button b { display: block; font-weight: 600; }
+.barra-caixa { display: flex; justify-content: space-between; gap: 8px; width: 100%; margin-bottom: 10px; padding: 10px 12px; border: 1px solid var(--borda); border-radius: 10px; background: var(--gelo-claro); color: var(--gelo); font: inherit; font-size: .88rem; text-align: left; cursor: pointer; }
+.grade-cedulas { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; margin-bottom: 8px; }
+.grade-cedulas label { margin: 0; }
+.aviso { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--texto); color: var(--fundo); padding: 10px 16px; border-radius: 10px; z-index: 20; max-width: calc(100% - 32px); }
+.aviso.erro { background: var(--vermelho); color: #fff; }
+dialog { border: 0; border-radius: 14px; padding: 18px; width: min(460px, calc(100% - 32px)); background: var(--cartao); color: var(--texto); }
+dialog::backdrop { background: rgba(0,0,0,.45); }
+.boas-vindas { max-width: 440px; margin: 24px auto; }
+.vazio { text-align: center; color: var(--suave); padding: 20px 0; }
+.tabela { overflow-x: auto; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<header class="topo">
+  <h1>Geladão</h1>
+  <span class="status" id="status">carregando…</span>
+</header>
+<main id="tela"><div class="cartao vazio">Carregando seus dados…</div></main>
+<nav class="abas" id="abas">
+  <button data-aba="vender"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.5 12h11l2-8H6.2"/></svg>Vender</button>
+  <button data-aba="estoque"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>Estoque</button>
+  <button data-aba="entrada"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>Entrada</button>
+  <button data-aba="relatorios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg>Relatórios</button>
+  <button data-aba="mais"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>Mais</button>
+</nav>
+<div id="aviso" class="aviso" hidden></div>
+<dialog id="dialogo"></dialog>
+
+<script>
+"use strict";
+// Geladão — versão de navegador. Valores em centavos. Dados no banco do artifact (db).
+const App = (() => {
+  // ================= utilidades =================
+  const NOMES_METODO = { dinheiro: 'Dinheiro', pix: 'Pix', debito: 'Débito', credito: 'Crédito', boleto: 'Boleto', transferencia: 'Transferência' };
+  const METODOS_VENDA = ['dinheiro', 'pix', 'debito', 'credito'];
+  const METODOS_COMPRA = ['pix', 'dinheiro', 'debito', 'credito', 'boleto', 'transferencia'];
+  const MOTIVOS = { vencido: 'Vencido', quebrado: 'Quebrado/estragado', consumo: 'Consumo próprio', outro: 'Outro' };
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const reais = (c) => (c == null || !isFinite(c) ? '—' : (Math.round(c) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
+  const pct = (x) => (x == null || !isFinite(x) ? '—' : (x * 100).toFixed(0) + '%');
+  function centavos(txt) {
+    if (txt == null) return null;
+    let s = String(txt).trim().replace(/[R$\s]/g, '');
+    if (!s) return null;
+    if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+    const n = Number(s);
+    return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : null;
+  }
+  const paraCampo = (c) => (c == null ? '' : (c / 100).toFixed(2).replace('.', ','));
+  const p2 = (n) => String(n).padStart(2, '0');
+  const dataLocal = (d = new Date()) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+  const agora = (d = new Date()) => `${dataLocal(d)} ${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
+  const dataBR = (s) => (s ? s.slice(0, 10).split('-').reverse().join('/') + (s.length > 10 ? ' ' + s.slice(11, 16) : '') : '—');
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const diasAte = (iso) => Math.round((Date.parse(iso + 'T12:00:00') - Date.parse(dataLocal() + 'T12:00:00')) / 86400000);
+  class Erro extends Error {}
+  const exigir = (c, m) => { if (!c) throw new Erro(m); };
+  const intPos = (v) => Number.isInteger(v) && v > 0;
+  const intNN = (v) => Number.isInteger(v) && v >= 0;
+
+  let timerAviso;
+  function aviso(msg, erro = false) {
+    const el = $('#aviso');
+    el.textContent = msg; el.className = 'aviso' + (erro ? ' erro' : ''); el.hidden = false;
+    clearTimeout(timerAviso); timerAviso = setTimeout(() => (el.hidden = true), erro ? 5000 : 2600);
+  }
+  function tentar(fn) {
+    try { const r = fn(); if (r && r.catch) r.catch((e) => aviso(e.message, true)); return r; }
+    catch (e) { aviso(e instanceof Erro ? e.message : 'Algo deu errado: ' + e.message, true); if (!(e instanceof Erro)) console.error(e); }
+  }
+
+  // ================= armazenamento =================
+  // Coleções. vendas: 1 documento por dia; perdas: 1 por mês (cabe muito mais no limite de documentos).
+  const D = { socios: {}, produtos: {}, tipos: {}, compras: {}, vendas: {}, perdas: {}, despesas: {}, caixas: {} };
+  const COLS = Object.keys(D);
+  let db = null, modo = 'carregando', pendentes = 0;
+  const filas = {};
+
+  function atualizarStatus() {
+    const el = $('#status');
+    if (modo === 'carregando') el.textContent = 'carregando…';
+    else if (modo === 'local') el.textContent = 'salvo só neste aparelho';
+    else if (modo === 'erro') el.textContent = 'sem conexão com os dados';
+    else el.textContent = pendentes ? 'salvando…' : 'salvo ✓';
+  }
+  async function iniciarStore() {
+    try { db = window.claude && window.claude.use ? await window.claude.use('db') : null; } catch { db = null; }
+    if (!db) {
+      modo = 'local';
+      try { const s = JSON.parse(localStorage.getItem('geladao.dados') || '{}'); for (const c of COLS) D[c] = s[c] || {}; } catch {}
+      return;
+    }
+    const timer = setTimeout(() => { if (modo === 'carregando') aviso('Os dados estão demorando para carregar. Verifique a internet.', true); }, 10000);
+    try {
+      const snaps = await Promise.all(COLS.map((c) => db.collection(c).get()));
+      snaps.forEach((s, i) => { for (const d of s.docs) D[COLS[i]][d.id] = JSON.parse(JSON.stringify(d.data())); });
+      modo = 'nuvem';
+    } catch (e) {
+      modo = 'erro';
+      aviso('Não foi possível carregar os dados: ' + (e.message || e.code), true);
+    } finally { clearTimeout(timer); }
+  }
+  function salvarLocal() { try { localStorage.setItem('geladao.dados', JSON.stringify(D)); } catch {} }
+  function gravar(col, id, doc) { if (doc == null) delete D[col][id]; else D[col][id] = doc; persistir(col, id); }
+  function persistir(col, id) {
+    if (modo === 'local') return salvarLocal();
+    exigir(modo === 'nuvem', 'Sem conexão com os dados. Recarregue a página.');
+    const k = col + '/' + id;
+    pendentes++; atualizarStatus();
+    filas[k] = (filas[k] || Promise.resolve()).then(async () => {
+      const doc = D[col][id];
+      try { if (doc) await db.doc(k).set(JSON.parse(JSON.stringify(doc))); else await db.doc(k).delete(); }
+      catch (e) {
+        aviso(e.code === 'quota_exceeded' ? 'O espaço de dados encheu. Baixe um backup e apague registros antigos.' : 'Não foi possível salvar: ' + (e.message || e.code), true);
+      } finally { pendentes--; atualizarStatus(); }
+    });
+  }
+  window.addEventListener('beforeunload', (e) => { if (pendentes) { e.preventDefault(); e.returnValue = ''; } });
+
+  // ================= regras de negócio =================
+  const socios = () => Object.values(D.socios).filter((s) => s.ativo !== false).sort((a, b) => a.nome.localeCompare(b.nome));
+  const nomeSocio = (id) => D.socios[id]?.nome || '—';
+  const vendasLista = () => Object.values(D.vendas).flatMap((d) => d.lista || []);
+  const perdasLista = () => Object.values(D.perdas).flatMap((d) => d.lista || []);
+  function todosLotes() {
+    const r = [];
+    for (const c of Object.values(D.compras)) for (const it of c.itens) r.push({ ...it, compra_id: c.id, data: c.data, pago_por: c.pago_por });
+    return r;
+  }
+  // Quanto já saiu de cada lote (vendas não canceladas + perdas)
+  function usoLotes() {
+    const u = {};
+    const somar = (movs) => { for (const m of movs) u[m.lote_id] = (u[m.lote_id] || 0) + m.q; };
+    for (const v of vendasLista()) if (!v.cancelada) for (const it of v.itens) somar(it.lotes);
+    for (const p of perdasLista()) somar(p.lotes);
+    return u;
+  }
+  function lotesComSaldo() {
+    const u = usoLotes();
+    return todosLotes().map((l) => ({ ...l, restante: l.quantidade - (u[l.id] || 0) }));
+  }
+  function produtosInfo() {
+    const lotes = lotesComSaldo();
+    return Object.values(D.produtos).map((p) => {
+      const meus = lotes.filter((l) => l.produto_id === p.id);
+      const comSaldo = meus.filter((l) => l.restante > 0);
+      const estoque = comSaldo.reduce((s, l) => s + l.restante, 0);
+      const validades = comSaldo.map((l) => l.validade).filter(Boolean).sort();
+      const ultimo = meus.slice().sort((a, b) => (a.data + a.id).localeCompare(b.data + b.id)).pop();
+      const custoMedio = estoque ? comSaldo.reduce((s, l) => s + l.restante * l.custo_final, 0) / estoque : null;
+      const custo = custoMedio ?? ultimo?.custo_final ?? null;
+      return { ...p, estoque, proxima_validade: validades[0] || null, ultimo_custo: ultimo?.custo_final ?? null, custo_medio: custoMedio, custo,
+        lucro_unitario: custo == null ? null : p.preco_venda - custo, margem: custo == null || !p.preco_venda ? null : (p.preco_venda - custo) / p.preco_venda };
+    }).sort((a, b) => (b.ativo !== false) - (a.ativo !== false) || a.nome.localeCompare(b.nome));
+  }
+  const produto = (id) => D.produtos[id];
+
+  // Sai primeiro o lote que vence primeiro (FEFO)
+  function alocar(produtoId, qtd, uso) {
+    const lotes = todosLotes().filter((l) => l.produto_id === produtoId)
+      .map((l) => ({ ...l, restante: l.quantidade - (uso[l.id] || 0) })).filter((l) => l.restante > 0)
+      .sort((a, b) => (a.validade ? 0 : 1) - (b.validade ? 0 : 1) || (a.validade || '').localeCompare(b.validade || '') || (a.data + a.id).localeCompare(b.data + b.id));
+    const disp = lotes.reduce((s, l) => s + l.restante, 0);
+    exigir(disp >= qtd, `Estoque insuficiente de "${produto(produtoId)?.nome}": tem ${disp}, pedido ${qtd}.`);
+    const movs = []; let falta = qtd, custo = 0;
+    for (const l of lotes) {
+      if (!falta) break;
+      const q = Math.min(falta, l.restante);
+      movs.push({ lote_id: l.id, q }); custo += q * l.custo_final;
+      uso[l.id] = (uso[l.id] || 0) + q; falta -= q;
+    }
+    return { movs, custo };
+  }
+
+  function salvarSocio(d, id) {
+    exigir(d.nome && d.nome.trim(), 'Informe o nome.');
+    id = id || uid();
+    gravar('socios', id, { id, nome: d.nome.trim(), ativo: d.ativo !== false });
+    return D.socios[id];
+  }
+  function salvarProduto(d, id) {
+    exigir(d.nome && d.nome.trim(), 'Informe o nome do produto.');
+    exigir(intNN(d.preco_venda), 'Informe o preço de venda.');
+    exigir(intNN(d.estoque_minimo ?? 0), 'Estoque mínimo inválido.');
+    id = id || uid();
+    gravar('produtos', id, { id, nome: d.nome.trim(), categoria: (d.categoria || '').trim(), preco_venda: d.preco_venda, estoque_minimo: d.estoque_minimo || 0, ativo: d.ativo !== false });
+    return D.produtos[id];
+  }
+
+  function registrarCompra(d) {
+    exigir(D.socios[d.pago_por], 'Escolha quem pagou.');
+    exigir(METODOS_COMPRA.includes(d.metodo_pagamento), 'Forma de pagamento inválida.');
+    exigir(d.itens.length, 'Adicione pelo menos um produto.');
+    for (const it of d.itens) {
+      exigir(produto(it.produto_id), 'Escolha o produto em todas as linhas.');
+      exigir(intPos(it.quantidade), 'Quantidade inválida.');
+      exigir(intNN(it.custo_unitario), 'Informe o custo unitário.');
+    }
+    for (const e of d.extras) { exigir(e.descricao && e.descricao.trim(), 'Descreva o custo extra.'); exigir(intPos(e.valor), 'Valor do custo extra inválido.'); }
+    const totalItens = d.itens.reduce((s, i) => s + i.quantidade * i.custo_unitario, 0);
+    const totalExtras = d.extras.reduce((s, e) => s + e.valor, 0);
+    const totalQtd = d.itens.reduce((s, i) => s + i.quantidade, 0);
+    const id = uid();
+    const itens = d.itens.map((it) => {
+      const parte = totalItens > 0 ? totalExtras * (it.quantidade * it.custo_unitario / totalItens) : totalExtras * it.quantidade / totalQtd;
+      const rateio = parte / it.quantidade;
+      return { id: uid(), produto_id: it.produto_id, quantidade: it.quantidade, custo_unitario: it.custo_unitario, rateio, custo_final: it.custo_unitario + rateio, validade: it.validade || null };
+    });
+    gravar('compras', id, { id, data: agora(), fornecedor: (d.fornecedor || '').trim(), metodo_pagamento: d.metodo_pagamento, pago_por: d.pago_por,
+      total_itens: totalItens, total_extras: totalExtras, extras: d.extras.map((e) => ({ descricao: e.descricao.trim(), valor: e.valor })), itens });
+    return D.compras[id];
+  }
+
+  const caixaAberto = () => Object.values(D.caixas).find((c) => !c.fechado_em) || null;
+  function registrarVenda(d) {
+    const cx = caixaAberto();
+    exigir(cx, 'O caixa está fechado. Abra o caixa antes de vender.');
+    exigir(d.itens.length, 'Adicione pelo menos um produto.');
+    const desconto = d.desconto || 0;
+    const uso = usoLotes();
+    let subtotal = 0, custo = 0;
+    const itens = d.itens.map((it) => {
+      const p = produto(it.produto_id);
+      exigir(p && p.ativo !== false, 'Produto não encontrado.');
+      const a = alocar(p.id, it.quantidade, uso);
+      subtotal += it.quantidade * p.preco_venda; custo += a.custo;
+      return { produto_id: p.id, nome: p.nome, quantidade: it.quantidade, preco: p.preco_venda, custo: a.custo, lotes: a.movs };
+    });
+    exigir(desconto <= subtotal, 'Desconto maior que o valor da venda.');
+    const total = subtotal - desconto;
+    exigir(d.pagamentos.length, 'Escolha a forma de pagamento.');
+    for (const pg of d.pagamentos) { exigir(METODOS_VENDA.includes(pg.metodo), 'Forma de pagamento inválida.'); exigir(intPos(pg.valor), 'Valor de pagamento inválido.'); }
+    const recebido = d.pagamentos.reduce((s, p) => s + p.valor, 0);
+    exigir(recebido >= total, 'Pagamento menor que o total.');
+    const troco = recebido - total;
+    const din = d.pagamentos.filter((p) => p.metodo === 'dinheiro').reduce((s, p) => s + p.valor, 0);
+    exigir(troco === 0 || din >= troco, 'Troco só pode sair de pagamento em dinheiro.');
+    const liq = {};
+    for (const pg of d.pagamentos) liq[pg.metodo] = (liq[pg.metodo] || 0) + pg.valor;
+    if (troco) liq.dinheiro -= troco;
+    const pagamentos = Object.entries(liq).filter(([, v]) => v > 0).map(([metodo, valor]) => ({ metodo, valor }));
+    const venda = { id: uid(), data: agora(), caixa_id: cx.id, itens, subtotal, desconto, total, custo, recebido, troco, pagamentos, cancelada: false };
+    const dia = venda.data.slice(0, 10);
+    const docDia = D.vendas[dia] ? { lista: [...D.vendas[dia].lista, venda] } : { lista: [venda] };
+    gravar('vendas', dia, docDia);
+    return venda;
+  }
+  function cancelarVenda(id) {
+    for (const [dia, doc] of Object.entries(D.vendas)) {
+      const v = doc.lista.find((x) => x.id === id);
+      if (!v) continue;
+      exigir(!v.cancelada, 'Venda já cancelada.');
+      const cx = D.caixas[v.caixa_id];
+      exigir(!cx || !cx.fechado_em, 'Esta venda é de um caixa já fechado e não pode mais ser cancelada.');
+      gravar('vendas', dia, { lista: doc.lista.map((x) => (x.id === id ? { ...x, cancelada: true, cancelada_em: agora() } : x)) });
+      return;
+    }
+    throw new Erro('Venda não encontrada.');
+  }
+  function registrarPerda(d) {
+    exigir(produto(d.produto_id), 'Produto não encontrado.');
+    exigir(intPos(d.quantidade), 'Quantidade inválida.');
+    exigir(MOTIVOS[d.motivo], 'Motivo inválido.');
+    const a = alocar(d.produto_id, d.quantidade, usoLotes());
+    const p = { id: uid(), data: agora(), produto_id: d.produto_id, nome: produto(d.produto_id).nome, quantidade: d.quantidade, motivo: d.motivo, custo: a.custo, lotes: a.movs };
+    const mes = p.data.slice(0, 7);
+    gravar('perdas', mes, { lista: [...(D.perdas[mes]?.lista || []), p] });
+  }
+  function registrarDespesa(d) {
+    exigir(d.descricao && d.descricao.trim(), 'Descreva a despesa.');
+    exigir(intPos(d.valor), 'Informe o valor.');
+    exigir(D.socios[d.pago_por], 'Escolha quem pagou.');
+    const id = uid();
+    gravar('despesas', id, { id, data: d.data || dataLocal(), descricao: d.descricao.trim(), valor: d.valor, metodo_pagamento: d.metodo_pagamento, pago_por: d.pago_por });
+  }
+
+  function calcCaixa(cx) {
+    const vendas = vendasLista().filter((v) => v.caixa_id === cx.id);
+    const ok = vendas.filter((v) => !v.cancelada);
+    const pm = Object.fromEntries(METODOS_VENDA.map((m) => [m, 0]));
+    for (const v of ok) for (const p of v.pagamentos) pm[p.metodo] += p.valor;
+    const sangrias = cx.movimentos.filter((m) => m.tipo === 'sangria').reduce((s, m) => s + m.valor, 0);
+    const reforcos = cx.movimentos.filter((m) => m.tipo === 'reforco').reduce((s, m) => s + m.valor, 0);
+    return { vendas: ok.length, canceladas: vendas.length - ok.length, total_vendas: ok.reduce((s, v) => s + v.total, 0), por_metodo: pm, sangrias, reforcos,
+      dinheiro_esperado: cx.fundo_inicial + pm.dinheiro + reforcos - sangrias };
+  }
+  function abrirCaixa(fundo) {
+    exigir(!caixaAberto(), 'Já existe um caixa aberto.');
+    exigir(intNN(fundo), 'Fundo de troco inválido.');
+    const id = uid();
+    gravar('caixas', id, { id, aberto_em: agora(), fundo_inicial: fundo, movimentos: [], fechado_em: null });
+  }
+  function movimentarCaixa(tipo, valor, motivo) {
+    const cx = caixaAberto();
+    exigir(cx, 'Não há caixa aberto.');
+    exigir(intPos(valor), 'Informe o valor.');
+    if (tipo === 'sangria') exigir(valor <= calcCaixa(cx).dinheiro_esperado, 'A sangria é maior que o dinheiro na gaveta.');
+    gravar('caixas', cx.id, { ...cx, movimentos: [...cx.movimentos, { data: agora(), tipo, valor, motivo: (motivo || '').trim() }] });
+  }
+  function fecharCaixa(contado, conferidos, obs) {
+    const cx = caixaAberto();
+    exigir(cx, 'Não há caixa aberto.');
+    exigir(intNN(contado), 'Informe o dinheiro contado.');
+    const t = calcCaixa(cx);
+    const diferencas = { dinheiro: contado - t.dinheiro_esperado };
+    for (const [m, v] of Object.entries(conferidos)) diferencas[m] = v - t.por_metodo[m];
+    gravar('caixas', cx.id, { ...cx, fechado_em: agora(), dinheiro_contado: contado, dinheiro_esperado: t.dinheiro_esperado, diferenca: diferencas.dinheiro,
+      resumo: { ...t, conferidos, diferencas }, observacao: (obs || '').trim() });
+    return D.caixas[cx.id];
+  }
+
+  const naFaixa = (data, de, ate) => { const d = data.slice(0, 10); return d >= de && d <= ate; };
+  function resumo(de, ate) {
+    const vendas = vendasLista().filter((v) => !v.cancelada && naFaixa(v.data, de, ate));
+    const faturamento = vendas.reduce((s, v) => s + v.total, 0);
+    const custo = vendas.reduce((s, v) => s + v.custo, 0);
+    const pm = {};
+    for (const v of vendas) for (const p of v.pagamentos) pm[p.metodo] = (pm[p.metodo] || 0) + p.valor;
+    const prod = {};
+    for (const v of vendas) for (const i of v.itens) {
+      const r = prod[i.produto_id] || (prod[i.produto_id] = { nome: produto(i.produto_id)?.nome || i.nome, quantidade: 0, total: 0, lucro: 0 });
+      r.quantidade += i.quantidade; r.total += i.quantidade * i.preco; r.lucro += i.quantidade * i.preco - i.custo;
+    }
+    const perdas = perdasLista().filter((p) => naFaixa(p.data, de, ate)).reduce((s, p) => s + p.custo, 0);
+    const despesas = Object.values(D.despesas).filter((d) => naFaixa(d.data, de, ate)).reduce((s, d) => s + d.valor, 0);
+    return { vendas: vendas.length, faturamento, custo, lucro_bruto: faturamento - custo, perdas, despesas, lucro_final: faturamento - custo - perdas - despesas,
+      por_metodo: Object.entries(pm).sort((a, b) => b[1] - a[1]),
+      mais_vendidos: Object.values(prod).sort((a, b) => b.quantidade - a.quantidade).slice(0, 15) };
+  }
+  function acertoSocios(de, ate) {
+    const lista = Object.values(D.socios).map((s) => {
+      const compras = Object.values(D.compras).filter((c) => c.pago_por === s.id && naFaixa(c.data, de, ate)).reduce((t, c) => t + c.total_itens + c.total_extras, 0);
+      const despesas = Object.values(D.despesas).filter((d) => d.pago_por === s.id && naFaixa(d.data, de, ate)).reduce((t, d) => t + d.valor, 0);
+      return { ...s, investido: compras + despesas };
+    }).filter((s) => s.ativo !== false || s.investido);
+    const total = lista.reduce((t, s) => t + s.investido, 0);
+    const media = lista.length ? total / lista.length : 0;
+    return { total, media, socios: lista.map((s) => ({ ...s, saldo: s.investido - media })) };
+  }
+  function alertas() {
+    const prods = produtosInfo().filter((p) => p.ativo !== false);
+    const baixo = prods.filter((p) => p.estoque <= p.estoque_minimo);
+    const vencendo = lotesComSaldo().filter((l) => l.restante > 0 && l.validade && diasAte(l.validade) <= 7)
+      .map((l) => ({ ...l, dias: diasAte(l.validade), nome: produto(l.produto_id)?.nome })).sort((a, b) => a.validade.localeCompare(b.validade));
+    return { baixo, vencendo };
+  }
+
+  // ================= planilha Excel (.xlsx) =================
+  const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  const crc32 = (b) => { let c = 0xffffffff; for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+  async function deflate(bytes) { return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer()); }
+  async function zipar(arquivos) {
+    const enc = new TextEncoder(), partes = [], central = []; let offset = 0;
+    const d = new Date(), hora = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), data = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+    for (const [nome, texto] of arquivos) {
+      const nb = enc.encode(nome), dados = enc.encode(texto), comp = await deflate(dados), crc = crc32(dados);
+      const lh = new DataView(new ArrayBuffer(30));
+      [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, 8, 2], [10, hora, 2], [12, data, 2], [14, crc, 4], [18, comp.length, 4], [22, dados.length, 4], [26, nb.length, 2], [28, 0, 2]]
+        .forEach(([o, v, n]) => (n === 4 ? lh.setUint32(o, v, true) : lh.setUint16(o, v, true)));
+      partes.push(new Uint8Array(lh.buffer), nb, comp);
+      const ch = new DataView(new ArrayBuffer(46));
+      [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, 8, 2], [12, hora, 2], [14, data, 2], [16, crc, 4], [20, comp.length, 4], [24, dados.length, 4], [28, nb.length, 2], [42, offset, 4]]
+        .forEach(([o, v, n]) => (n === 4 ? ch.setUint32(o, v, true) : ch.setUint16(o, v, true)));
+      central.push(new Uint8Array(ch.buffer), nb);
+      offset += 30 + nb.length + comp.length;
+    }
+    const tamCentral = central.reduce((s, b) => s + b.length, 0);
+    const fim = new DataView(new ArrayBuffer(22));
+    fim.setUint32(0, 0x06054b50, true); fim.setUint16(8, arquivos.length, true); fim.setUint16(10, arquivos.length, true); fim.setUint32(12, tamCentral, true); fim.setUint32(16, offset, true);
+    return new Blob([...partes, ...central, new Uint8Array(fim.buffer)]);
+  }
+  const xe = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+  const col = (i) => { let s = ''; for (let n = i + 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s; return s; };
+  const serial = (t) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t || ''); return m ? (Date.UTC(+m[1], +m[2] - 1, +m[3]) - Date.UTC(1899, 11, 30)) / 86400000 : null; };
+  const EST = { texto: 0, cab: 1, moeda: 2, int: 3, data: 4, pct: 5, tMoeda: 6, tInt: 7, tTexto: 8, titulo: 9 };
+  const ESTT = { texto: 0, int: 3, moeda: 2, data: 4, pct: 5 }, ESTTOT = { texto: 8, int: 7, moeda: 6, data: 8, pct: 8 };
+  function cel(ref, v, tipo, s) {
+    if (v == null || v === '') return s ? `<c r="${ref}" s="${s}"/>` : '';
+    if (tipo === 'data') { const n = serial(v); return n == null ? `<c r="${ref}" s="${s}" t="inlineStr"><is><t>${xe(v)}</t></is></c>` : `<c r="${ref}" s="${s}"><v>${n}</v></c>`; }
+    if (tipo === 'texto' || typeof v !== 'number') return `<c r="${ref}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${xe(v)}</t></is></c>`;
+    return `<c r="${ref}" s="${s}"><v>${isFinite(v) ? v : 0}</v></c>`;
+  }
+  function xmlAba(a) {
+    const rows = []; let r = 1;
+    rows.push(`<row r="1">${cel('A1', a.titulo, 'texto', EST.titulo)}</row>`); r = 3;
+    const cab = r;
+    rows.push(`<row r="${r}">${a.colunas.map((c, i) => cel(col(i) + r, c[0], 'texto', EST.cab)).join('')}</row>`);
+    for (const o of a.linhas) { r++; rows.push(`<row r="${r}">${a.colunas.map((c, i) => cel(col(i) + r, o[c[1]], c[2], ESTT[c[2]])).join('')}</row>`); }
+    const ult = r;
+    if (a.total) { r++; rows.push(`<row r="${r}">${a.colunas.map((c, i) => cel(col(i) + r, a.total[c[1]], c[2], ESTTOT[c[2]])).join('')}</row>`); }
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>`
+      + `<sheetViews><sheetView workbookViewId="0"><pane ySplit="${cab}" topLeftCell="A${cab + 1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`
+      + `<cols>${a.colunas.map((c, i) => `<col min="${i + 1}" max="${i + 1}" width="${c[3] || 14}" customWidth="1"/>`).join('')}</cols><sheetData>${rows.join('')}</sheetData>`
+      + (a.linhas.length ? `<autoFilter ref="A${cab}:${col(a.colunas.length - 1)}${ult}"/>` : '')
+      + `<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
+  }
+  const ESTILOS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`
+    + `<numFmts count="3"><numFmt numFmtId="164" formatCode="&quot;R$&quot;\\ #,##0.00;[Red]\\-&quot;R$&quot;\\ #,##0.00"/><numFmt numFmtId="165" formatCode="dd/mm/yyyy"/><numFmt numFmtId="166" formatCode="0.0%"/></numFmts>`
+    + `<fonts count="4"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="14"/><name val="Calibri"/></font></fonts>`
+    + `<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF0B6FB8"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE3F0FB"/><bgColor indexed="64"/></patternFill></fill></fills>`
+    + `<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="10">`
+    + `<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment wrapText="1" vertical="center"/></xf>`
+    + `<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>`
+    + `<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>`
+    + `<xf numFmtId="164" fontId="2" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/><xf numFmtId="1" fontId="2" fillId="3" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/>`
+    + `<xf numFmtId="0" fontId="2" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>`
+    + `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  function gerarXlsx(abas) {
+    return zipar([
+      ['[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${abas.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`],
+      ['_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+      ['xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${abas.map((a, i) => `<sheet name="${xe(a.nome)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>`],
+      ['xl/_rels/workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${abas.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${abas.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+      ['xl/styles.xml', ESTILOS],
+      ...abas.map((a, i) => [`xl/worksheets/sheet${i + 1}.xml`, xmlAba(a)]),
+    ]);
+  }
+  function abasEstoque(de, ate) {
+    const R = (c) => (c == null ? null : Math.round(c) / 100);
+    const soma = (l, c) => Math.round(l.reduce((s, x) => s + (x[c] || 0), 0) * 100) / 100;
+    const prods = produtosInfo();
+    const atual = prods.filter((p) => p.ativo !== false || p.estoque > 0).map((p) => ({
+      produto: p.nome, categoria: p.categoria, estoque: p.estoque, minimo: p.estoque_minimo,
+      situacao: p.estoque === 0 ? 'Zerado' : p.estoque <= p.estoque_minimo ? 'Baixo' : 'OK',
+      custo: R(p.custo), preco: R(p.preco_venda), lucro: R(p.lucro_unitario), margem: p.margem,
+      valor_custo: p.custo == null ? null : R(p.custo * p.estoque), valor_venda: R(p.preco_venda * p.estoque), validade: p.proxima_validade }));
+    // Movimento: entradas, vendas e perdas no período; estoque final reconstruído a partir de hoje
+    const mov = (filtro) => {
+      const m = {};
+      const g = (id) => m[id] || (m[id] = { e: 0, ev: 0, v: 0, vv: 0, vc: 0, p: 0, pc: 0 });
+      for (const l of todosLotes()) if (filtro(l.data)) { const x = g(l.produto_id); x.e += l.quantidade; x.ev += l.quantidade * l.custo_final; }
+      for (const v of vendasLista()) if (!v.cancelada && filtro(v.data)) for (const i of v.itens) { const x = g(i.produto_id); x.v += i.quantidade; x.vv += i.quantidade * i.preco; x.vc += i.custo; }
+      for (const p of perdasLista()) if (filtro(p.data)) { const x = g(p.produto_id); x.p += p.quantidade; x.pc += p.custo; }
+      return m;
+    };
+    const no = mov((d) => naFaixa(d, de, ate)), depois = mov((d) => d.slice(0, 10) > ate);
+    const movimento = prods.map((p) => {
+      const n = no[p.id] || {}, dp = depois[p.id] || {};
+      const fim = p.estoque - (dp.e || 0) + (dp.v || 0) + (dp.p || 0);
+      const inicio = fim - (n.e || 0) + (n.v || 0) + (n.p || 0);
+      return { produto: p.nome, categoria: p.categoria, inicio, entradas: n.e || 0, vendidos: n.v || 0, perdas: n.p || 0, fim,
+        custo_entradas: n.e ? R(n.ev) : null, faturamento: n.v ? R(n.vv) : null, custo_vendido: n.v ? R(n.vc) : null, lucro: n.v ? R(n.vv - n.vc) : null, custo_perdas: n.p ? R(n.pc) : null };
+    }).filter((m) => m.inicio || m.entradas || m.vendidos || m.perdas || m.fim);
+    const lotes = lotesComSaldo().filter((l) => l.restante > 0)
+      .sort((a, b) => (a.validade ? 0 : 1) - (b.validade ? 0 : 1) || (a.validade || '').localeCompare(b.validade || ''))
+      .map((l) => { const dias = l.validade ? diasAte(l.validade) : null; return {
+        produto: produto(l.produto_id)?.nome, entrada: l.data.slice(0, 10), pago_por: nomeSocio(l.pago_por), comprado: l.quantidade, restante: l.restante,
+        custo_pago: R(l.custo_unitario), rateio: R(l.rateio), custo_final: R(l.custo_final), valor_restante: R(l.custo_final * l.restante), validade: l.validade, dias,
+        situacao: dias == null ? 'Sem validade' : dias < 0 ? 'VENCIDO' : dias <= 7 ? 'Vence em breve' : 'OK' }; });
+    const per = de === '0000-01-01' ? 'todo o período' : `${dataBR(de)} a ${dataBR(ate)}`;
+    return [
+      { nome: 'Estoque atual', titulo: `Estoque atual — gerado em ${dataBR(dataLocal())}`, linhas: atual,
+        colunas: [['Produto', 'produto', 'texto', 28], ['Categoria', 'categoria', 'texto', 16], ['Estoque', 'estoque', 'int', 10], ['Mínimo', 'minimo', 'int', 10], ['Situação', 'situacao', 'texto', 11],
+          ['Custo médio un.', 'custo', 'moeda', 15], ['Preço de venda', 'preco', 'moeda', 15], ['Lucro por un.', 'lucro', 'moeda', 14], ['Margem', 'margem', 'pct', 10],
+          ['Valor em estoque (custo)', 'valor_custo', 'moeda', 18], ['Valor em estoque (venda)', 'valor_venda', 'moeda', 18], ['Próxima validade', 'validade', 'data', 15]],
+        total: { produto: 'TOTAL', estoque: soma(atual, 'estoque'), valor_custo: soma(atual, 'valor_custo'), valor_venda: soma(atual, 'valor_venda') } },
+      { nome: 'Movimento no período', titulo: `Movimento de estoque — ${per}`, linhas: movimento,
+        colunas: [['Produto', 'produto', 'texto', 28], ['Categoria', 'categoria', 'texto', 16], ['Estoque inicial', 'inicio', 'int', 12], ['Entradas', 'entradas', 'int', 10], ['Vendidos', 'vendidos', 'int', 10],
+          ['Perdas', 'perdas', 'int', 10], ['Estoque final', 'fim', 'int', 12], ['Custo das entradas', 'custo_entradas', 'moeda', 16], ['Faturamento', 'faturamento', 'moeda', 14],
+          ['Custo vendido', 'custo_vendido', 'moeda', 14], ['Lucro', 'lucro', 'moeda', 14], ['Custo das perdas', 'custo_perdas', 'moeda', 15]],
+        total: Object.fromEntries([['produto', 'TOTAL'], ...['inicio', 'entradas', 'vendidos', 'perdas', 'fim', 'custo_entradas', 'faturamento', 'custo_vendido', 'lucro', 'custo_perdas'].map((c) => [c, soma(movimento, c)])]) },
+      { nome: 'Lotes e validades', titulo: 'Lotes com saldo (o que vence primeiro sai primeiro)', linhas: lotes,
+        colunas: [['Produto', 'produto', 'texto', 28], ['Data da entrada', 'entrada', 'data', 14], ['Pago por', 'pago_por', 'texto', 14], ['Comprado', 'comprado', 'int', 10], ['Restante', 'restante', 'int', 10],
+          ['Custo pago un.', 'custo_pago', 'moeda', 14], ['Custos extras un.', 'rateio', 'moeda', 15], ['Custo final un.', 'custo_final', 'moeda', 14], ['Valor restante', 'valor_restante', 'moeda', 14],
+          ['Validade', 'validade', 'data', 12], ['Dias p/ vencer', 'dias', 'int', 12], ['Situação', 'situacao', 'texto', 15]],
+        total: { produto: 'TOTAL', restante: soma(lotes, 'restante'), valor_restante: soma(lotes, 'valor_restante') } },
+    ];
+  }
+  async function baixar(filename, data) {
+    let dl = null;
+    try { dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null; } catch {}
+    if (!dl) return aviso('Este aparelho não permite baixar arquivos por aqui. Abra o Geladão no claude.ai.', true);
+    try { await dl.save({ filename, data }); aviso('Arquivo pronto ✓'); }
+    catch (e) { if (e.code !== 'declined') aviso('Não foi possível baixar: ' + (e.message || e.code), true); }
+  }
+
+  // ================= interface =================
+  const S = { aba: 'vender', carrinho: [], desconto: 0, pagamentos: [], busca: '', entrada: null, periodo: 'hoje', de: null, ate: null };
+  const ativos = () => produtosInfo().filter((p) => p.ativo !== false);
+  function ir(aba) {
+    S.aba = aba;
+    document.querySelectorAll('#abas button').forEach((b) => b.classList.toggle('ativa', b.dataset.aba === aba));
+    render();
+  }
+  function render() {
+    if (modo === 'erro') { $('#tela').innerHTML = `<div class="cartao vazio">Não foi possível carregar seus dados.<br><br><button class="btn" onclick="location.reload()">Tentar de novo</button></div>`; return; }
+    if (!Object.keys(D.socios).length) return telaBoasVindas();
+    const telas = { vender: telaVender, estoque: telaEstoque, entrada: telaEntrada, relatorios: telaRelatorios, mais: telaMais };
+    try { (telas[S.aba] || telaVender)(); } catch (e) { console.error(e); aviso('Erro ao mostrar a tela: ' + e.message, true); }
+    window.scrollTo?.(0, 0);
+  }
+  function abrirDialogo(html) { const d = $('#dialogo'); d.innerHTML = html; d.showModal(); d.querySelector('input,select')?.focus(); }
+  function fecharDialogo() { const d = $('#dialogo'); if (d.open) d.close(); }
+  // confirm() não funciona aqui: confirmação dentro da página
+  let acaoConfirmar = null;
+  function confirmar(titulo, texto, rotulo, acao, perigo = true) {
+    acaoConfirmar = acao;
+    abrirDialogo(`<h2>${esc(titulo)}</h2><p>${texto}</p><div class="linha"><button class="btn sec" onclick="App.fecharDialogo()">Voltar</button>
+      <button class="btn ${perigo ? 'perigo' : ''}" onclick="App.confirmado()">${esc(rotulo)}</button></div>`);
+  }
+  function confirmado() { const a = acaoConfirmar; acaoConfirmar = null; fecharDialogo(); if (a) tentar(a); }
+
+  // ---------- boas-vindas ----------
+  function telaBoasVindas() {
+    $('#tela').innerHTML = `<div class="cartao boas-vindas">
+      <h2>Boas-vindas ao Geladão</h2>
+      <p>Controle de estoque, vendas e caixa do seu geladão, direto no celular. Seus dados ficam salvos na sua conta.</p>
+      <p class="suave">Para começar, informe seu nome. Ele aparece como sócio em "quem pagou" nas compras. Depois você pode cadastrar outros sócios.</p>
+      <label>Seu nome<input id="bv-nome" autocomplete="given-name"></label>
+      <button class="btn largo" onclick="App.comecar()">Começar</button></div>`;
+  }
+  function comecar() { tentar(() => { salvarSocio({ nome: $('#bv-nome').value }); S.aba = 'mais'; ir('mais'); aviso('Pronto! Agora cadastre seus produtos.'); }); }
+
+  // ---------- VENDER ----------
+  function totaisVenda() {
+    const subtotal = S.carrinho.reduce((s, it) => s + it.quantidade * produto(it.produto_id).preco_venda, 0);
+    const total = Math.max(0, subtotal - S.desconto);
+    const pago = S.pagamentos.reduce((s, p) => s + (p.valor || 0), 0);
+    return { subtotal, total, pago, falta: Math.max(0, total - pago), troco: Math.max(0, pago - total) };
+  }
+  function telaVender() {
+    const cx = caixaAberto();
+    if (!cx) {
+      $('#tela').innerHTML = `<div class="cartao boas-vindas"><h2>Caixa fechado</h2><p class="suave">Para vender, abra o caixa informando o dinheiro de troco que está na gaveta.</p>
+        <label>Fundo de troco (R$)<input id="cx-fundo" inputmode="decimal" placeholder="0,00"></label>
+        <button class="btn largo" onclick="App.abrirCaixa()">Abrir caixa</button></div>`;
+      return;
+    }
+    const t = calcCaixa(cx);
+    $('#tela').innerHTML = `<button class="barra-caixa" onclick="App.telaCaixa()"><span>Caixa aberto · gaveta <b class="num">${reais(t.dinheiro_esperado)}</b> · vendas <b class="num">${reais(t.total_vendas)}</b></span><b>Caixa ›</b></button>
+      <div class="layout-venda"><section style="min-width:0">
+        <input id="busca" type="search" placeholder="Buscar produto…" value="${esc(S.busca)}" oninput="App.buscar(this.value)">
+        <div id="grade" class="grade-produtos" style="margin-top:10px"></div></section>
+      <section class="cartao" id="carrinho"></section></div>`;
+    renderGrade(); renderCarrinho();
+  }
+  function buscar(v) { S.busca = v; renderGrade(); }
+  function renderGrade() {
+    const termo = S.busca.trim().toLowerCase();
+    const lista = ativos().filter((p) => !termo || p.nome.toLowerCase().includes(termo) || (p.categoria || '').toLowerCase().includes(termo));
+    $('#grade').innerHTML = lista.map((p) => {
+      const resta = p.estoque - (S.carrinho.find((c) => c.produto_id === p.id)?.quantidade || 0);
+      return `<button class="produto-btn" ${resta <= 0 ? 'disabled' : ''} onclick="App.addCarrinho('${p.id}')"><strong>${esc(p.nome)}</strong>
+        <span class="preco">${reais(p.preco_venda)}</span><div class="suave num">${resta} em estoque</div></button>`;
+    }).join('') || `<p class="vazio">${Object.keys(D.produtos).length ? 'Nenhum produto encontrado.' : 'Nenhum produto ainda. Cadastre em Mais › Produtos e dê entrada no estoque.'}</p>`;
+  }
+  const estoqueDe = (id) => produtosInfo().find((p) => p.id === id)?.estoque || 0;
+  function addCarrinho(id) {
+    const it = S.carrinho.find((c) => c.produto_id === id);
+    if ((it?.quantidade || 0) >= estoqueDe(id)) return aviso('Sem estoque suficiente', true);
+    if (it) it.quantidade++; else S.carrinho.push({ produto_id: id, quantidade: 1 });
+    ajustarPgUnico(); renderGrade(); renderCarrinho();
+  }
+  function mudarQtd(id, d) {
+    const it = S.carrinho.find((c) => c.produto_id === id);
+    if (!it) return;
+    if (d > 0 && it.quantidade >= estoqueDe(id)) return aviso('Sem estoque suficiente', true);
+    it.quantidade += d;
+    if (it.quantidade <= 0) S.carrinho = S.carrinho.filter((c) => c !== it);
+    ajustarPgUnico(); renderGrade(); renderCarrinho();
+  }
+  function ajustarPgUnico() { if (S.pagamentos.length === 1 && S.pagamentos[0].auto) S.pagamentos[0].valor = totaisVenda().total; }
+  function escolherMetodo(m) {
+    S.pagamentos = [{ metodo: m, valor: m === 'dinheiro' ? null : totaisVenda().total, auto: m !== 'dinheiro' }];
+    renderCarrinho();
+    if (m === 'dinheiro') setTimeout(() => $('#pg-0')?.focus(), 0);
+  }
+  function addPagamento() { const { falta } = totaisVenda(); S.pagamentos.forEach((p) => (p.auto = false)); S.pagamentos.push({ metodo: 'dinheiro', valor: falta || null }); renderCarrinho(); }
+  function setPagamento(i, campo, v) {
+    const p = S.pagamentos[i];
+    if (campo === 'valor') { p.valor = centavos(v); p.auto = false; resumoPg(); } else { p.metodo = v; renderCarrinho(); }
+  }
+  function rmPagamento(i) { S.pagamentos.splice(i, 1); renderCarrinho(); }
+  function setDesconto(v) { S.desconto = centavos(v) || 0; ajustarPgUnico(); resumoPg(); }
+  function renderCarrinho() {
+    const t = totaisVenda(), um = S.pagamentos.length <= 1;
+    $('#carrinho').innerHTML = `<div class="entre"><h2 style="margin:0">Venda</h2>${S.carrinho.length ? '<button class="btn peq perigo" onclick="App.limparVenda()">Limpar</button>' : ''}</div>
+      ${S.carrinho.length ? S.carrinho.map((it) => { const p = produto(it.produto_id); return `<div class="carrinho-item"><div class="nome">${esc(p.nome)}<div class="suave num">${reais(p.preco_venda)} un.</div></div>
+        <div class="qtd"><button onclick="App.mudarQtd('${p.id}',-1)" aria-label="Menos">−</button><b class="num">${it.quantidade}</b><button onclick="App.mudarQtd('${p.id}',1)" aria-label="Mais">+</button></div>
+        <b class="num" style="min-width:82px;text-align:right">${reais(p.preco_venda * it.quantidade)}</b></div>`; }).join('') : '<p class="vazio">Toque nos produtos para adicionar.</p>'}
+      <label style="margin-top:10px">Desconto (R$)<input id="v-desc" inputmode="decimal" value="${paraCampo(S.desconto || null)}" placeholder="0,00" oninput="App.setDesconto(this.value)"></label>
+      <div class="entre"><span>Total</span><span class="total-grande" id="v-total">${reais(t.total)}</span></div>
+      <h3>Pagamento</h3>
+      ${um ? `<div class="metodos">${METODOS_VENDA.map((m) => `<button class="${S.pagamentos[0]?.metodo === m ? 'sel' : ''}" onclick="App.escolherMetodo('${m}')">${NOMES_METODO[m]}</button>`).join('')}</div>` : ''}
+      ${S.pagamentos.map((p, i) => `<div class="linha" style="margin-top:8px">
+        ${um ? '' : `<select id="pgm-${i}" onchange="App.setPagamento(${i},'metodo',this.value)">${METODOS_VENDA.map((m) => `<option value="${m}" ${p.metodo === m ? 'selected' : ''}>${NOMES_METODO[m]}</option>`).join('')}</select>`}
+        <label style="margin:0">${um ? (p.metodo === 'dinheiro' ? 'Valor recebido' : 'Valor') : ''}<input id="pg-${i}" inputmode="decimal" placeholder="0,00" value="${paraCampo(p.valor)}" oninput="App.setPagamento(${i},'valor',this.value)"></label>
+        ${um ? '' : `<button class="btn peq perigo" style="flex:0 0 auto" onclick="App.rmPagamento(${i})" aria-label="Remover">✕</button>`}</div>`).join('')}
+      ${S.pagamentos.length ? '<button class="btn peq sec" style="margin-top:8px" onclick="App.addPagamento()">+ Dividir pagamento</button>' : ''}
+      <div id="resumo-pg" style="margin:10px 0"></div>
+      <button class="btn largo" id="btn-finalizar" onclick="App.finalizarVenda()">Finalizar venda</button>`;
+    resumoPg();
+  }
+  function resumoPg() {
+    const t = totaisVenda();
+    if ($('#v-total')) $('#v-total').textContent = reais(t.total);
+    if (S.pagamentos.length === 1 && S.pagamentos[0].auto && $('#pg-0')) $('#pg-0').value = paraCampo(S.pagamentos[0].valor);
+    const el = $('#resumo-pg'); if (!el) return;
+    el.innerHTML = !S.pagamentos.length ? '<span class="suave">Escolha a forma de pagamento.</span>'
+      : t.falta > 0 ? `<b class="neg">Falta ${reais(t.falta)}</b>`
+      : t.troco > 0 ? `<b class="pos" style="font-size:1.25rem">Troco: ${reais(t.troco)}</b>` : '<span class="pos">Pagamento confere ✓</span>';
+    $('#btn-finalizar').disabled = !S.carrinho.length || !S.pagamentos.length || t.falta > 0;
+  }
+  function limparVenda() { S.carrinho = []; S.desconto = 0; S.pagamentos = []; renderGrade(); renderCarrinho(); }
+  function finalizarVenda() {
+    tentar(() => {
+      const v = registrarVenda({ desconto: S.desconto, itens: S.carrinho, pagamentos: S.pagamentos.filter((p) => p.valor > 0).map(({ metodo, valor }) => ({ metodo, valor })) });
+      aviso(`Venda registrada${v.troco ? ' · troco ' + reais(v.troco) : ''} ✓`);
+      S.carrinho = []; S.desconto = 0; S.pagamentos = []; S.busca = '';
+      telaVender();
+    });
+  }
+
+  // ---------- ESTOQUE ----------
+  function telaEstoque() {
+    const a = alertas(), baixo = new Set(a.baixo.map((p) => p.id));
+    $('#tela').innerHTML = `<h2>Estoque</h2>
+      ${a.vencendo.length || a.baixo.length ? `<div class="cartao" style="border-color:var(--amarelo)"><h3>Atenção</h3><ul class="lista">
+        ${a.vencendo.map((l) => `<li>${esc(l.nome)} · <span class="num">${l.restante}</span> un. ${l.dias < 0 ? `<span class="selo erro">venceu ${dataBR(l.validade)}</span>` : `<span class="selo alerta">vence em ${l.dias} dia(s)</span>`}</li>`).join('')}
+        ${a.baixo.map((p) => `<li>${esc(p.nome)} · <span class="selo alerta">estoque baixo: ${p.estoque}</span></li>`).join('')}</ul></div>` : ''}
+      <div class="cartao"><ul class="lista">${ativos().map((p) => `<li>
+        <div class="entre"><div><b>${esc(p.nome)}</b>${p.categoria ? `<span class="selo">${esc(p.categoria)}</span>` : ''}${baixo.has(p.id) ? '<span class="selo alerta">baixo</span>' : ''}</div>
+          <b class="num" style="font-size:1.2rem">${p.estoque}</b></div>
+        <div class="suave num">Venda ${reais(p.preco_venda)} · Custo ${reais(p.custo)} · Lucro/un. <span class="${p.lucro_unitario < 0 ? 'neg' : 'pos'}">${reais(p.lucro_unitario)}</span> (${pct(p.margem)}) · Validade ${dataBR(p.proxima_validade)}</div>
+        ${p.estoque > 0 ? `<button class="btn peq perigo" style="margin-top:6px" onclick="App.dialogoPerda('${p.id}')">Registrar perda</button>` : ''}</li>`).join('')
+        || '<li class="vazio">Nenhum produto cadastrado. Vá em Mais › Produtos.</li>'}</ul></div>`;
+  }
+  function dialogoPerda(id) {
+    const e = estoqueDe(id);
+    abrirDialogo(`<h2>Perda: ${esc(produto(id).nome)}</h2>
+      <label>Quantidade (máx. ${e})<input id="pe-qtd" type="number" min="1" max="${e}" value="1"></label>
+      <label>Motivo<select id="pe-motivo">${Object.entries(MOTIVOS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
+      <div class="linha"><button class="btn sec" onclick="App.fecharDialogo()">Cancelar</button><button class="btn perigo" onclick="App.salvarPerda('${id}')">Registrar perda</button></div>`);
+  }
+  function salvarPerda(id) { tentar(() => { registrarPerda({ produto_id: id, quantidade: Number($('#pe-qtd').value), motivo: $('#pe-motivo').value }); fecharDialogo(); aviso('Perda registrada'); telaEstoque(); }); }
+
+  // ---------- ENTRADA ----------
+  const itemVazio = () => ({ produto_id: '', quantidade: '', custo: '', validade: '' });
+  function previa() {
+    const E = S.entrada;
+    const itens = E.itens.map((i) => ({ q: Number(i.quantidade) || 0, c: centavos(i.custo) || 0, p: produto(i.produto_id) }));
+    const totalItens = itens.reduce((s, i) => s + i.q * i.c, 0), totalQtd = itens.reduce((s, i) => s + i.q, 0);
+    const totalExtras = E.extras.reduce((s, e) => s + (centavos(e.valor) || 0), 0);
+    return { totalItens, totalExtras, itens: itens.map((i) => {
+      if (!i.q) return null;
+      const parte = totalItens > 0 ? totalExtras * (i.q * i.c / totalItens) : (totalQtd ? totalExtras * i.q / totalQtd : 0);
+      const final = i.c + parte / i.q;
+      return { final, lucro: i.p ? i.p.preco_venda - final : null };
+    }) };
+  }
+  function telaEntrada() {
+    const ss = socios();
+    if (!S.entrada) S.entrada = { fornecedor: '', pago_por: ss[0]?.id, metodo_pagamento: 'pix', itens: [itemVazio()], extras: [] };
+    const E = S.entrada;
+    if (!Object.keys(D.produtos).length) { $('#tela').innerHTML = '<h2>Entrada de mercadoria</h2><div class="cartao vazio">Cadastre os produtos primeiro em Mais › Produtos.</div>'; return; }
+    const compras = Object.values(D.compras).sort((a, b) => b.data.localeCompare(a.data)).slice(0, 15);
+    $('#tela').innerHTML = `<h2>Entrada de mercadoria</h2>
+      <div class="cartao"><div class="linha">
+        <label>Quem pagou<select id="en-pago" onchange="App.setEntrada('pago_por', this.value)">${ss.map((s) => `<option value="${s.id}" ${E.pago_por === s.id ? 'selected' : ''}>${esc(s.nome)}</option>`).join('')}</select></label>
+        <label>Forma de pagamento<select id="en-metodo" onchange="App.setEntrada('metodo_pagamento', this.value)">${METODOS_COMPRA.map((m) => `<option value="${m}" ${E.metodo_pagamento === m ? 'selected' : ''}>${NOMES_METODO[m]}</option>`).join('')}</select></label></div>
+        <label>Fornecedor (opcional)<input id="en-forn" value="${esc(E.fornecedor)}" oninput="App.setEntrada('fornecedor', this.value)"></label></div>
+      <div class="cartao"><h3>Produtos</h3><div id="ent-itens"></div><button class="btn sec peq" onclick="App.addItem()">+ Produto</button></div>
+      <div class="cartao"><h3>Custos extras</h3><p class="suave" style="margin-top:0">Frete, gelo, sacolas… O valor é dividido entre os produtos desta compra.</p><div id="ent-extras"></div>
+        <div class="linha" style="gap:6px">${Object.values(D.tipos).map((t) => `<button class="btn sec peq" style="flex:0 0 auto" onclick="App.addExtra('${t.id}')">+ ${esc(t.nome)}</button>`).join('')}
+        <button class="btn sec peq" style="flex:0 0 auto" onclick="App.addExtra()">+ Outro</button></div></div>
+      <div class="cartao" id="ent-total"></div>
+      <h3>Últimas entradas</h3>
+      <div class="cartao"><ul class="lista">${compras.map((c) => `<li><div class="entre"><b>${dataBR(c.data)}</b><b class="num">${reais(c.total_itens + c.total_extras)}</b></div>
+        <div class="suave">${esc(nomeSocio(c.pago_por))} · ${NOMES_METODO[c.metodo_pagamento]}${c.fornecedor ? ' · ' + esc(c.fornecedor) : ''}${c.total_extras ? ' · extras ' + reais(c.total_extras) : ''}</div>
+        <div class="suave">${c.itens.map((i) => `${i.quantidade}× ${esc(produto(i.produto_id)?.nome || '?')}`).join(', ')}</div></li>`).join('') || '<li class="vazio">Nenhuma entrada ainda.</li>'}</ul></div>`;
+    renderItens(); renderExtras(); renderTotalEntrada();
+  }
+  function setEntrada(c, v) { S.entrada[c] = v; }
+  const txtPrevia = (p) => (!p ? '' : `Custo final/un.: <b class="num">${reais(p.final)}</b>` + (p.lucro != null ? ` · Lucro/un.: <b class="num ${p.lucro < 0 ? 'neg' : 'pos'}">${reais(p.lucro)}</b>` : ''));
+  function renderItens() {
+    const pv = previa();
+    $('#ent-itens').innerHTML = S.entrada.itens.map((it, i) => `<div style="border-bottom:1px solid var(--borda);padding-bottom:8px;margin-bottom:8px"><div class="linha">
+      <label style="flex:2 1 200px">Produto<select id="ei-p-${i}" onchange="App.setItem(${i},'produto_id',this.value)"><option value="">Escolha…</option>
+        ${ativos().map((p) => `<option value="${p.id}" ${it.produto_id === p.id ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}</select></label>
+      <label>Quantidade<input id="ei-q-${i}" type="number" min="1" inputmode="numeric" value="${esc(it.quantidade)}" oninput="App.setItem(${i},'quantidade',this.value)"></label>
+      <label>Custo unitário (R$)<input id="ei-c-${i}" inputmode="decimal" placeholder="0,00" value="${esc(it.custo)}" oninput="App.setItem(${i},'custo',this.value)"></label>
+      <label>Validade<input id="ei-v-${i}" type="date" value="${esc(it.validade)}" onchange="App.setItem(${i},'validade',this.value)"></label></div>
+      <div class="entre"><span class="suave" id="prev-${i}">${txtPrevia(pv.itens[i])}</span>${S.entrada.itens.length > 1 ? `<button class="btn peq perigo" onclick="App.rmItem(${i})">Remover</button>` : ''}</div></div>`).join('');
+  }
+  function atualizarPrevias() { const pv = previa(); pv.itens.forEach((p, i) => { const el = $('#prev-' + i); if (el) el.innerHTML = txtPrevia(p); }); renderTotalEntrada(); }
+  function setItem(i, c, v) { S.entrada.itens[i][c] = v; atualizarPrevias(); }
+  function addItem() { S.entrada.itens.push(itemVazio()); renderItens(); renderTotalEntrada(); }
+  function rmItem(i) { S.entrada.itens.splice(i, 1); renderItens(); renderTotalEntrada(); }
+  function renderExtras() {
+    $('#ent-extras').innerHTML = S.entrada.extras.map((e, i) => `<div class="linha">
+      <label style="flex:2 1 160px">Descrição<input id="ex-d-${i}" value="${esc(e.descricao)}" oninput="App.setExtra(${i},'descricao',this.value)"></label>
+      <label>Valor (R$)<input id="ex-v-${i}" inputmode="decimal" placeholder="0,00" value="${esc(e.valor)}" oninput="App.setExtra(${i},'valor',this.value)"></label>
+      <button class="btn peq perigo" style="flex:0 0 auto;margin-bottom:8px" onclick="App.rmExtra(${i})" aria-label="Remover">✕</button></div>`).join('');
+  }
+  function addExtra(tid) { const t = D.tipos[tid]; S.entrada.extras.push({ descricao: t ? t.nome : '', valor: t && t.valor_padrao ? paraCampo(t.valor_padrao) : '' }); renderExtras(); atualizarPrevias(); }
+  function setExtra(i, c, v) { S.entrada.extras[i][c] = v; atualizarPrevias(); }
+  function rmExtra(i) { S.entrada.extras.splice(i, 1); renderExtras(); atualizarPrevias(); }
+  function renderTotalEntrada() {
+    const p = previa();
+    $('#ent-total').innerHTML = `<div class="entre"><span>Produtos</span><b class="num">${reais(p.totalItens)}</b></div>
+      <div class="entre"><span>Custos extras</span><b class="num">${reais(p.totalExtras)}</b></div>
+      <div class="entre"><span>Total da compra</span><span class="total-grande">${reais(p.totalItens + p.totalExtras)}</span></div>
+      <button class="btn largo" style="margin-top:10px" onclick="App.salvarEntrada()">Salvar entrada</button>`;
+  }
+  function salvarEntrada() {
+    tentar(() => {
+      const E = S.entrada;
+      const itens = E.itens.filter((i) => i.produto_id || i.quantidade || i.custo).map((i) => ({ produto_id: i.produto_id, quantidade: Number(i.quantidade), custo_unitario: centavos(i.custo), validade: i.validade || null }));
+      const extras = E.extras.filter((e) => e.descricao || e.valor).map((e) => ({ descricao: e.descricao, valor: centavos(e.valor) }));
+      registrarCompra({ fornecedor: E.fornecedor, pago_por: E.pago_por, metodo_pagamento: E.metodo_pagamento, itens, extras });
+      S.entrada = null; aviso('Entrada registrada ✓'); telaEntrada();
+    });
+  }
+
+  // ---------- RELATÓRIOS ----------
+  function intervalo() {
+    const h = new Date(), d = (n) => dataLocal(new Date(h.getFullYear(), h.getMonth(), h.getDate() - n));
+    switch (S.periodo) {
+      case 'hoje': return [d(0), d(0)];
+      case '7d': return [d(6), d(0)];
+      case 'mes': return [dataLocal(new Date(h.getFullYear(), h.getMonth(), 1)), d(0)];
+      case 'mespassado': return [dataLocal(new Date(h.getFullYear(), h.getMonth() - 1, 1)), dataLocal(new Date(h.getFullYear(), h.getMonth(), 0))];
+      case 'tudo': return ['0000-01-01', '9999-12-31'];
+      default: return [S.de || d(0), S.ate || d(0)];
+    }
+  }
+  function setPeriodo(p) { S.periodo = p; telaRelatorios(); }
+  function setDatas() { S.de = $('#r-de').value; S.ate = $('#r-ate').value; telaRelatorios(); }
+  function telaRelatorios() {
+    const [de, ate] = intervalo(), r = resumo(de, ate), ac = acertoSocios(de, ate);
+    const vendas = vendasLista().filter((v) => naFaixa(v.data, de, ate)).sort((a, b) => b.data.localeCompare(a.data));
+    const despesas = Object.values(D.despesas).filter((x) => naFaixa(x.data, de, ate)).sort((a, b) => b.data.localeCompare(a.data));
+    const per = { hoje: 'Hoje', '7d': '7 dias', mes: 'Este mês', mespassado: 'Mês passado', tudo: 'Tudo', custom: 'Escolher datas' };
+    $('#tela').innerHTML = `<div class="entre" style="flex-wrap:wrap"><h2>Relatórios</h2><button class="btn peq" onclick="App.baixarPlanilha()">Baixar planilha de estoque</button></div>
+      <div class="chips">${Object.entries(per).map(([k, v]) => `<button class="${S.periodo === k ? 'sel' : ''}" onclick="App.setPeriodo('${k}')">${v}</button>`).join('')}</div>
+      ${S.periodo === 'custom' ? `<div class="linha"><label>De<input type="date" id="r-de" value="${de}" onchange="App.setDatas()"></label><label>Até<input type="date" id="r-ate" value="${ate}" onchange="App.setDatas()"></label></div>` : ''}
+      <div class="kpis">
+        <div class="kpi"><div class="suave">Faturamento</div><div class="v">${reais(r.faturamento)}</div><div class="suave">${r.vendas} venda(s)</div></div>
+        <div class="kpi"><div class="suave">Custo das mercadorias</div><div class="v">${reais(r.custo)}</div></div>
+        <div class="kpi"><div class="suave">Lucro bruto</div><div class="v">${reais(r.lucro_bruto)}</div></div>
+        <div class="kpi"><div class="suave">Perdas</div><div class="v neg">${reais(r.perdas)}</div></div>
+        <div class="kpi"><div class="suave">Despesas</div><div class="v neg">${reais(r.despesas)}</div></div>
+        <div class="kpi destaque"><div class="suave">Lucro final</div><div class="v">${reais(r.lucro_final)}</div></div></div>
+      <div class="cartao"><h3>Caixa por forma de pagamento</h3><ul class="lista">${r.por_metodo.map(([m, v]) => `<li class="entre"><span>${NOMES_METODO[m]}</span><b class="num">${reais(v)}</b></li>`).join('') || '<li class="vazio">Sem vendas no período.</li>'}</ul></div>
+      <div class="cartao"><h3>Mais vendidos</h3><ul class="lista">${r.mais_vendidos.map((p) => `<li class="entre"><span>${esc(p.nome)} <span class="suave num">× ${p.quantidade}</span></span><span class="num"><b>${reais(p.total)}</b> <span class="suave">lucro ${reais(p.lucro)}</span></span></li>`).join('') || '<li class="vazio">—</li>'}</ul></div>
+      <div class="cartao"><h3>Acerto entre sócios</h3><p class="suave" style="margin-top:0">Compras e despesas pagas no período · total ${reais(ac.total)} · parte de cada ${reais(ac.media)}</p>
+        <ul class="lista">${ac.socios.map((s) => `<li class="entre"><span>${esc(s.nome)}<div class="suave num">pagou ${reais(s.investido)}</div></span>
+          <b class="num ${s.saldo >= 0 ? 'pos' : 'neg'}">${Math.round(s.saldo) === 0 ? 'quite' : s.saldo > 0 ? 'a receber ' + reais(s.saldo) : 'deve ' + reais(-s.saldo)}</b></li>`).join('')}</ul></div>
+      <div class="cartao"><h3>Vendas</h3><ul class="lista">${vendas.map((v) => `<li class="${v.cancelada ? 'cancelada' : ''}"><div class="entre"><b>${dataBR(v.data)}</b><b class="num">${reais(v.total)}</b></div>
+        <div class="suave">${v.pagamentos.map((p) => NOMES_METODO[p.metodo]).join(' + ')}${v.desconto ? ' · desconto ' + reais(v.desconto) : ''}</div>
+        <div class="suave">${v.itens.map((i) => `${i.quantidade}× ${esc(i.nome)}`).join(', ')}</div>
+        ${v.cancelada ? '<span class="selo erro">cancelada</span>' : `<button class="btn peq perigo" style="margin-top:4px" onclick="App.pedirCancelamento('${v.id}')">Cancelar venda</button>`}</li>`).join('') || '<li class="vazio">Nenhuma venda no período.</li>'}</ul></div>
+      <div class="cartao"><h3>Despesas</h3><ul class="lista">${despesas.map((x) => `<li class="entre"><span>${esc(x.descricao)}<div class="suave">${dataBR(x.data)} · ${esc(nomeSocio(x.pago_por))}</div></span><b class="num">${reais(x.valor)}</b></li>`).join('') || '<li class="vazio">Nenhuma despesa no período.</li>'}</ul></div>`;
+  }
+  function pedirCancelamento(id) {
+    confirmar('Cancelar venda?', 'Os produtos voltam para o estoque e a venda sai dos relatórios.', 'Cancelar venda', () => { cancelarVenda(id); aviso('Venda cancelada'); telaRelatorios(); });
+  }
+  function baixarPlanilha() {
+    const [de, ate] = intervalo();
+    tentar(async () => {
+      const blob = await gerarXlsx(abasEstoque(de, ate));
+      await baixar(`geladao-estoque_${de === '0000-01-01' ? 'inicio' : de}_a_${ate === '9999-12-31' ? dataLocal() : ate}.xlsx`, blob);
+    });
+  }
+
+  // ---------- CAIXA ----------
+  const CEDULAS = [20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 25, 10, 5];
+  const difTexto = (d) => (Math.round(d) === 0 ? '<b class="pos">Bateu ✓</b>' : d > 0 ? `<b class="pos">Sobrou ${reais(d)}</b>` : `<b class="neg">Faltou ${reais(-d)}</b>`);
+  function abrirCaixaUI() { tentar(() => { abrirCaixa(centavos($('#cx-fundo').value) ?? 0); aviso('Caixa aberto ✓'); ir('vender'); }); }
+  function telaCaixa() {
+    S.aba = 'mais';
+    document.querySelectorAll('#abas button').forEach((b) => b.classList.toggle('ativa', b.dataset.aba === 'mais'));
+    const cx = caixaAberto();
+    const fechados = Object.values(D.caixas).filter((c) => c.fechado_em).sort((a, b) => b.fechado_em.localeCompare(a.fechado_em));
+    const hist = `<h3>Fechamentos anteriores</h3><div class="cartao"><ul class="lista">${fechados.map((c) => `<li class="entre" style="cursor:pointer" onclick="App.verFechamento('${c.id}')">
+      <span><b>${dataBR(c.aberto_em)}</b> → ${c.fechado_em.slice(11, 16)}<div class="suave num">${c.resumo.vendas} venda(s) · ${reais(c.resumo.total_vendas)}</div></span><span>${difTexto(c.diferenca)}</span></li>`).join('') || '<li class="vazio">Nenhum fechamento ainda.</li>'}</ul></div>`;
+    const voltar = '<button class="btn sec peq" onclick="App.ir(\'mais\')">← Voltar</button>';
+    if (!cx) {
+      $('#tela').innerHTML = `${voltar}<h2 style="margin-top:12px">Caixa</h2><div class="cartao"><p><b>O caixa está fechado.</b></p><p class="suave">Conte o dinheiro de troco que está na gaveta para abrir.</p>
+        <label>Fundo de troco (R$)<input id="cx-fundo" inputmode="decimal" placeholder="0,00"></label><button class="btn largo" onclick="App.abrirCaixa()">Abrir caixa</button></div>${hist}`;
+      return;
+    }
+    const t = calcCaixa(cx), pm = t.por_metodo;
+    $('#tela').innerHTML = `${voltar}<h2 style="margin-top:12px">Caixa aberto</h2><p class="suave">Desde ${dataBR(cx.aberto_em)}</p>
+      <div class="kpis"><div class="kpi"><div class="suave">Vendas</div><div class="v">${reais(t.total_vendas)}</div><div class="suave">${t.vendas} venda(s)${t.canceladas ? ` · ${t.canceladas} cancelada(s)` : ''}</div></div>
+        <div class="kpi destaque"><div class="suave">Dinheiro na gaveta</div><div class="v">${reais(t.dinheiro_esperado)}</div><div class="suave">esperado</div></div></div>
+      <div class="cartao"><h3>Dinheiro</h3><ul class="lista num">
+        <li class="entre"><span>Fundo de troco</span><b>${reais(cx.fundo_inicial)}</b></li><li class="entre"><span>Vendas em dinheiro</span><b>+ ${reais(pm.dinheiro)}</b></li>
+        <li class="entre"><span>Reforços</span><b>+ ${reais(t.reforcos)}</b></li><li class="entre"><span>Sangrias</span><b>− ${reais(t.sangrias)}</b></li>
+        <li class="entre"><b>Esperado na gaveta</b><b>${reais(t.dinheiro_esperado)}</b></li></ul>
+        <div class="linha" style="margin-top:8px"><button class="btn sec" onclick="App.dialogoMov('sangria')">− Sangria (retirada)</button><button class="btn sec" onclick="App.dialogoMov('reforco')">+ Reforço de troco</button></div>
+        ${cx.movimentos.length ? `<ul class="lista" style="margin-top:8px">${cx.movimentos.map((m) => `<li class="entre suave"><span>${m.data.slice(11, 16)} · ${m.tipo === 'sangria' ? 'Sangria' : 'Reforço'}${m.motivo ? ' · ' + esc(m.motivo) : ''}</span><span class="num">${m.tipo === 'sangria' ? '−' : '+'} ${reais(m.valor)}</span></li>`).join('')}</ul>` : ''}</div>
+      <div class="cartao"><h3>Outras formas</h3><ul class="lista num">${['pix', 'debito', 'credito'].map((m) => `<li class="entre"><span>${NOMES_METODO[m]}</span><b>${reais(pm[m])}</b></li>`).join('')}</ul></div>
+      <div class="cartao" style="border-color:var(--gelo)"><h3>Fechar caixa</h3>
+        <details><summary class="suave" style="cursor:pointer;margin-bottom:8px">Contar cédulas e moedas</summary>
+          <div class="grade-cedulas">${CEDULAS.map((c) => `<label>${reais(c)}<input id="ced-${c}" type="number" min="0" inputmode="numeric" data-cedula="${c}" oninput="App.somarCedulas()"></label>`).join('')}</div></details>
+        <label>Dinheiro contado na gaveta (R$)<input id="fc-dinheiro" inputmode="decimal" placeholder="0,00" oninput="App.previaFech()"></label>
+        <div id="fc-dif-dinheiro" style="margin-bottom:10px"></div>
+        <p class="suave" style="margin:0 0 6px">Conferência com a maquininha ou o extrato (opcional):</p>
+        <div class="linha">${['pix', 'debito', 'credito'].map((m) => `<label>${NOMES_METODO[m]} (sistema ${reais(pm[m])})<input id="fc-${m}" inputmode="decimal" placeholder="0,00" oninput="App.previaFech()"><span id="fc-dif-${m}"></span></label>`).join('')}</div>
+        <label>Observação<input id="fc-obs" placeholder="Ex.: faltou troco"></label>
+        <button class="btn largo" onclick="App.pedirFechamento()">Fechar caixa</button></div>${hist}`;
+  }
+  function dialogoMov(tipo) {
+    const cx = caixaAberto();
+    abrirDialogo(`<h2>${tipo === 'sangria' ? 'Sangria (retirar dinheiro)' : 'Reforço de troco'}</h2>
+      ${tipo === 'sangria' ? `<p class="suave">Dinheiro na gaveta: ${reais(calcCaixa(cx).dinheiro_esperado)}</p>` : ''}
+      <label>Valor (R$)<input id="mv-valor" inputmode="decimal" placeholder="0,00"></label>
+      <label>Motivo<input id="mv-motivo" placeholder="${tipo === 'sangria' ? 'Ex.: depósito no banco' : 'Ex.: troco extra'}"></label>
+      <div class="linha"><button class="btn sec" onclick="App.fecharDialogo()">Cancelar</button><button class="btn" onclick="App.salvarMov('${tipo}')">Confirmar</button></div>`);
+  }
+  function salvarMov(tipo) { tentar(() => { movimentarCaixa(tipo, centavos($('#mv-valor').value), $('#mv-motivo').value); fecharDialogo(); aviso(tipo === 'sangria' ? 'Sangria registrada' : 'Reforço registrado'); telaCaixa(); }); }
+  function somarCedulas() { $('#fc-dinheiro').value = paraCampo([...document.querySelectorAll('[data-cedula]')].reduce((s, el) => s + (Number(el.value) || 0) * Number(el.dataset.cedula), 0)); previaFech(); }
+  function previaFech() {
+    const t = calcCaixa(caixaAberto()), din = centavos($('#fc-dinheiro').value);
+    $('#fc-dif-dinheiro').innerHTML = din == null ? '' : `Esperado ${reais(t.dinheiro_esperado)} · ${difTexto(din - t.dinheiro_esperado)}`;
+    for (const m of ['pix', 'debito', 'credito']) { const v = centavos($('#fc-' + m).value); $('#fc-dif-' + m).innerHTML = v == null ? '' : difTexto(v - t.por_metodo[m]); }
+  }
+  function pedirFechamento() {
+    const din = centavos($('#fc-dinheiro').value);
+    if (din == null) return aviso('Informe o dinheiro contado', true);
+    const t = calcCaixa(caixaAberto()), dif = din - t.dinheiro_esperado;
+    const conferidos = {};
+    for (const m of ['pix', 'debito', 'credito']) { const v = centavos($('#fc-' + m).value); if (v != null) conferidos[m] = v; }
+    const obs = $('#fc-obs').value;
+    confirmar('Fechar o caixa?', `${Math.round(dif) === 0 ? 'O dinheiro bateu.' : dif > 0 ? 'Sobrou ' + reais(dif) + '.' : 'Faltou ' + reais(-dif) + '.'} Depois de fechado, as vendas deste caixa não podem mais ser canceladas.`,
+      'Fechar caixa', () => { const f = fecharCaixa(din, conferidos, obs); telaCaixa(); verFechamento(f.id); }, false);
+  }
+  function verFechamento(id) {
+    const c = D.caixas[id], r = c.resumo, pm = r.por_metodo;
+    abrirDialogo(`<h2>Fechamento de caixa</h2><p class="suave">${dataBR(c.aberto_em)} até ${dataBR(c.fechado_em)}</p><ul class="lista num">
+      <li class="entre"><span>Vendas (${r.vendas})${r.canceladas ? ` <span class="suave">${r.canceladas} cancelada(s)</span>` : ''}</span><b>${reais(r.total_vendas)}</b></li>
+      <li class="entre"><span>Fundo de troco</span><span>${reais(c.fundo_inicial)}</span></li><li class="entre"><span>Vendas em dinheiro</span><span>+ ${reais(pm.dinheiro)}</span></li>
+      <li class="entre"><span>Reforços / Sangrias</span><span>+ ${reais(r.reforcos)} / − ${reais(r.sangrias)}</span></li>
+      <li class="entre"><span>Dinheiro esperado</span><b>${reais(c.dinheiro_esperado)}</b></li><li class="entre"><span>Dinheiro contado</span><b>${reais(c.dinheiro_contado)}</b></li>
+      <li class="entre"><span>Diferença</span>${difTexto(c.diferenca)}</li>
+      ${['pix', 'debito', 'credito'].map((m) => `<li class="entre"><span>${NOMES_METODO[m]}</span><span>${reais(pm[m])}${r.conferidos?.[m] != null ? ' · conferido ' + reais(r.conferidos[m]) + ' ' + difTexto(r.diferencas[m]) : ''}</span></li>`).join('')}</ul>
+      ${c.observacao ? `<p class="suave">Obs.: ${esc(c.observacao)}</p>` : ''}<button class="btn largo" onclick="App.fecharDialogo()">OK</button>`);
+  }
+
+  // ---------- MAIS ----------
+  const voltarMais = '<button class="btn sec peq" onclick="App.ir(\'mais\')">← Voltar</button>';
+  function telaMais() {
+    const cx = caixaAberto();
+    $('#tela').innerHTML = `<h2>Mais</h2><div class="menu-mais">
+      <button onclick="App.telaCaixa()"><b>Caixa</b><span class="suave">${cx ? 'aberto' : 'fechado'}</span></button>
+      <button onclick="App.telaProdutos()"><b>Produtos</b><span class="suave">${Object.keys(D.produtos).length} cadastrado(s)</span></button>
+      <button onclick="App.telaSocios()"><b>Sócios</b><span class="suave">quem paga as compras</span></button>
+      <button onclick="App.telaTipos()"><b>Custos extras</b><span class="suave">frete, gelo…</span></button>
+      <button onclick="App.telaDespesas()"><b>Despesas gerais</b><span class="suave">energia, aluguel…</span></button>
+      <button onclick="App.telaBackup()"><b>Backup</b><span class="suave">baixar ou restaurar</span></button></div>
+      ${modo === 'local' ? '<p class="suave" style="margin-top:16px">Atenção: neste modo os dados ficam só neste navegador. Abra pelo claude.ai para salvar na sua conta.</p>' : ''}`;
+  }
+  function telaProdutos() {
+    const ps = produtosInfo();
+    $('#tela').innerHTML = `<div class="entre">${voltarMais}<button class="btn peq" onclick="App.dialogoProduto()">+ Novo produto</button></div>
+      <h2 style="margin-top:12px">Produtos</h2><div class="cartao"><ul class="lista">${ps.map((p) => `<li class="entre ${p.ativo !== false ? '' : 'cancelada'}">
+        <span><b>${esc(p.nome)}</b>${p.categoria ? `<span class="selo">${esc(p.categoria)}</span>` : ''}<div class="suave num">${reais(p.preco_venda)} · mín. ${p.estoque_minimo} · estoque ${p.estoque}</div></span>
+        <button class="btn peq sec" style="flex:0 0 auto" onclick="App.dialogoProduto('${p.id}')">Editar</button></li>`).join('') || '<li class="vazio">Nenhum produto. Toque em "+ Novo produto".</li>'}</ul></div>`;
+  }
+  function dialogoProduto(id) {
+    const p = id ? D.produtos[id] : { nome: '', categoria: '', preco_venda: null, estoque_minimo: 0, ativo: true };
+    const cats = [...new Set(Object.values(D.produtos).map((x) => x.categoria).filter(Boolean))];
+    abrirDialogo(`<h2>${id ? 'Editar' : 'Novo'} produto</h2>
+      <label>Nome<input id="pr-nome" value="${esc(p.nome)}" placeholder="Ex.: Cerveja lata 350ml"></label>
+      <label>Categoria<input id="pr-cat" list="cats" value="${esc(p.categoria)}" placeholder="Ex.: Cerveja, Refrigerante, Gelo"><datalist id="cats">${cats.map((c) => `<option value="${esc(c)}">`).join('')}</datalist></label>
+      <div class="linha"><label>Preço de venda (R$)<input id="pr-preco" inputmode="decimal" value="${paraCampo(p.preco_venda)}" placeholder="0,00"></label>
+        <label>Estoque mínimo<input id="pr-min" type="number" min="0" value="${p.estoque_minimo}"></label></div>
+      ${id ? `<label><input type="checkbox" id="pr-ativo" ${p.ativo !== false ? 'checked' : ''}>Ativo (aparece nas vendas)</label>` : ''}
+      <div class="linha"><button class="btn sec" onclick="App.fecharDialogo()">Cancelar</button><button class="btn" onclick="App.salvarProdutoUI('${id || ''}')">Salvar</button></div>`);
+  }
+  function salvarProdutoUI(id) {
+    tentar(() => {
+      salvarProduto({ nome: $('#pr-nome').value, categoria: $('#pr-cat').value, preco_venda: centavos($('#pr-preco').value), estoque_minimo: Number($('#pr-min').value) || 0, ativo: id ? $('#pr-ativo').checked : true }, id || null);
+      fecharDialogo(); aviso('Produto salvo'); telaProdutos();
+    });
+  }
+  function telaSocios() {
+    $('#tela').innerHTML = `${voltarMais}<h2 style="margin-top:12px">Sócios</h2><p class="suave">Quem paga as compras e as despesas. Usado no acerto entre sócios.</p>
+      <div class="cartao"><div class="linha"><label>Nome<input id="so-nome"></label><button class="btn" style="flex:0 0 auto;margin-bottom:8px" onclick="App.addSocio()">Adicionar</button></div>
+      <ul class="lista">${Object.values(D.socios).map((s) => `<li class="entre ${s.ativo !== false ? '' : 'cancelada'}"><b>${esc(s.nome)}</b>
+        <button class="btn peq sec" style="flex:0 0 auto" onclick="App.alternarSocio('${s.id}')">${s.ativo !== false ? 'Desativar' : 'Reativar'}</button></li>`).join('')}</ul></div>`;
+  }
+  function addSocio() { tentar(() => { salvarSocio({ nome: $('#so-nome').value }); telaSocios(); }); }
+  function alternarSocio(id) {
+    tentar(() => {
+      const s = D.socios[id];
+      exigir(s.ativo === false || socios().length > 1, 'É preciso manter pelo menos um sócio ativo.');
+      salvarSocio({ nome: s.nome, ativo: s.ativo === false }, id); telaSocios();
+    });
+  }
+  function telaTipos() {
+    $('#tela').innerHTML = `${voltarMais}<h2 style="margin-top:12px">Custos extras</h2><p class="suave">Aparecem como atalho na Entrada. O valor é dividido entre os produtos da compra, proporcional ao valor de cada um.</p>
+      <div class="cartao"><div class="linha"><label>Nome<input id="tc-nome" placeholder="Ex.: Frete"></label><label>Valor padrão (R$, opcional)<input id="tc-valor" inputmode="decimal" placeholder="0,00"></label>
+        <button class="btn" style="flex:0 0 auto;margin-bottom:8px" onclick="App.addTipo()">Adicionar</button></div>
+      <ul class="lista">${Object.values(D.tipos).map((t) => `<li class="entre"><span>${esc(t.nome)} <span class="suave num">${t.valor_padrao ? reais(t.valor_padrao) : ''}</span></span>
+        <button class="btn peq perigo" style="flex:0 0 auto" onclick="App.rmTipo('${t.id}')">Excluir</button></li>`).join('') || '<li class="vazio">Nenhum custo cadastrado.</li>'}</ul></div>`;
+  }
+  function addTipo() { tentar(() => { const nome = $('#tc-nome').value.trim(); exigir(nome, 'Informe o nome.'); const id = uid(); gravar('tipos', id, { id, nome, valor_padrao: centavos($('#tc-valor').value) || 0 }); telaTipos(); }); }
+  function rmTipo(id) { tentar(() => { gravar('tipos', id, null); telaTipos(); }); }
+  function telaDespesas() {
+    const lista = Object.values(D.despesas).sort((a, b) => b.data.localeCompare(a.data));
+    $('#tela').innerHTML = `${voltarMais}<h2 style="margin-top:12px">Despesas gerais</h2><p class="suave">Gastos que não são de um produto (energia do freezer, aluguel, manutenção). Entram no lucro final e no acerto dos sócios.</p>
+      <div class="cartao"><div class="linha"><label>Descrição<input id="d-desc"></label><label>Valor (R$)<input id="d-valor" inputmode="decimal" placeholder="0,00"></label></div>
+        <div class="linha"><label>Data<input id="d-data" type="date" value="${dataLocal()}"></label>
+          <label>Quem pagou<select id="d-pago">${socios().map((s) => `<option value="${s.id}">${esc(s.nome)}</option>`).join('')}</select></label>
+          <label>Forma<select id="d-metodo">${METODOS_COMPRA.map((m) => `<option value="${m}">${NOMES_METODO[m]}</option>`).join('')}</select></label></div>
+        <button class="btn largo" onclick="App.addDespesa()">Registrar despesa</button></div>
+      <div class="cartao"><ul class="lista">${lista.map((x) => `<li class="entre"><span>${esc(x.descricao)}<div class="suave">${dataBR(x.data)} · ${esc(nomeSocio(x.pago_por))} · ${NOMES_METODO[x.metodo_pagamento]}</div></span><b class="num">${reais(x.valor)}</b></li>`).join('') || '<li class="vazio">Nenhuma despesa.</li>'}</ul></div>`;
+  }
+  function addDespesa() {
+    tentar(() => { registrarDespesa({ descricao: $('#d-desc').value, valor: centavos($('#d-valor').value), data: $('#d-data').value, pago_por: $('#d-pago').value, metodo_pagamento: $('#d-metodo').value }); aviso('Despesa registrada'); telaDespesas(); });
+  }
+  function telaBackup() {
+    const n = { produtos: Object.keys(D.produtos).length, compras: Object.keys(D.compras).length, vendas: vendasLista().length };
+    $('#tela').innerHTML = `${voltarMais}<h2 style="margin-top:12px">Backup</h2>
+      <div class="cartao"><p>Seus dados ficam salvos na sua conta. Para ter uma cópia guardada fora, baixe o backup de vez em quando (por exemplo, toda semana) e guarde no Google Drive.</p>
+        <p class="suave num">${n.produtos} produto(s) · ${n.compras} entrada(s) · ${n.vendas} venda(s)</p>
+        <button class="btn largo" onclick="App.baixarBackup()">Baixar backup</button></div>
+      <div class="cartao"><h3>Restaurar um backup</h3><p class="suave" style="margin-top:0">Substitui todos os dados atuais pelos do arquivo.</p>
+        <input id="bk-arq" type="file" accept=".json,application/json" onchange="App.lerBackup(this)"></div>`;
+  }
+  function baixarBackup() { tentar(() => baixar(`geladao-backup_${dataLocal()}.json`, JSON.stringify({ app: 'geladao', versao: 1, gerado_em: agora(), dados: D }))); }
+  function lerBackup(input) {
+    const f = input.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => tentar(() => {
+      let j; try { j = JSON.parse(r.result); } catch { throw new Erro('Arquivo inválido: não é um backup do Geladão.'); }
+      exigir(j && j.app === 'geladao' && j.dados, 'Arquivo inválido: não é um backup do Geladão.');
+      const vendas = Object.values(j.dados.vendas || {}).reduce((s, d) => s + (d.lista || []).length, 0);
+      confirmar('Restaurar backup?', `O arquivo de ${dataBR(j.gerado_em)} tem ${Object.keys(j.dados.produtos || {}).length} produto(s) e ${vendas} venda(s). Os dados atuais serão substituídos.`, 'Restaurar', () => {
+        for (const c of COLS) {
+          const novo = j.dados[c] || {};
+          for (const id of Object.keys(D[c])) if (!novo[id]) gravar(c, id, null);
+          for (const [id, doc] of Object.entries(novo)) gravar(c, id, doc);
+        }
+        aviso('Backup restaurado ✓'); S.entrada = null; S.carrinho = []; ir('vender');
+      });
+    });
+    r.readAsText(f);
+    input.value = '';
+  }
+
+  // ================= início =================
+  document.querySelectorAll('#abas button').forEach((b) => b.addEventListener('click', () => ir(b.dataset.aba)));
+  async function iniciar() {
+    await iniciarStore();
+    atualizarStatus();
+    ir('vender');
+  }
+  iniciar();
+
+  return { ir, comecar, buscar, addCarrinho, mudarQtd, escolherMetodo, addPagamento, setPagamento, rmPagamento, setDesconto, limparVenda, finalizarVenda,
+    dialogoPerda, salvarPerda, setEntrada, setItem, addItem, rmItem, addExtra, setExtra, rmExtra, salvarEntrada, setPeriodo, setDatas, pedirCancelamento, baixarPlanilha,
+    abrirCaixa: abrirCaixaUI, telaCaixa, dialogoMov, salvarMov, somarCedulas, previaFech, pedirFechamento, verFechamento, telaProdutos, dialogoProduto, salvarProdutoUI,
+    telaSocios, addSocio, alternarSocio, telaTipos, addTipo, rmTipo, telaDespesas, addDespesa, telaBackup, baixarBackup, lerBackup, fecharDialogo, confirmado,
+    _D: D, _logica: { registrarCompra, registrarVenda, resumo, produtosInfo, abasEstoque, gerarXlsx, fecharCaixa, calcCaixa, caixaAberto } };
+})();
+</script>
