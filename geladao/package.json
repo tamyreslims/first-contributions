@@ -1,0 +1,13 @@
+{
+  "name": "geladao",
+  "version": "0.1.0",
+  "description": "Controle de estoque, vendas e acerto entre sócios para um geladão",
+  "private": true,
+  "main": "src/server.js",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node --no-warnings src/server.js",
+    "test": "node --no-warnings --test"
+  },
+  "license": "MIT"
+}
