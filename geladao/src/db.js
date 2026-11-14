@@ -137,7 +137,38 @@ function criarTabelas(db) {
       metodo_pagamento  TEXT NOT NULL,
       pago_por          INTEGER NOT NULL REFERENCES pessoas(id)
     );
+
+    -- Caixa: abertura com fundo de troco, sangrias/reforços e fechamento com contagem
+    CREATE TABLE IF NOT EXISTS caixas (
+      id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+      aberto_em          TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+      aberto_por         INTEGER NOT NULL REFERENCES pessoas(id),
+      fundo_inicial      INTEGER NOT NULL,       -- centavos
+      fechado_em         TEXT,
+      fechado_por        INTEGER REFERENCES pessoas(id),
+      dinheiro_esperado  INTEGER,                -- calculado no fechamento
+      dinheiro_contado   INTEGER,                -- informado no fechamento
+      diferenca          INTEGER,                -- contado - esperado
+      resumo_json        TEXT,                   -- fotografia dos totais no fechamento
+      observacao         TEXT
+    );
+    -- Garante no máximo um caixa aberto por vez
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_um_caixa_aberto ON caixas((1)) WHERE fechado_em IS NULL;
+
+    CREATE TABLE IF NOT EXISTS movimentos_caixa (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      caixa_id   INTEGER NOT NULL REFERENCES caixas(id),
+      data       TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+      tipo       TEXT NOT NULL CHECK (tipo IN ('sangria','reforco')),
+      valor      INTEGER NOT NULL,
+      motivo     TEXT,
+      pessoa_id  INTEGER NOT NULL REFERENCES pessoas(id)
+    );
   `);
+
+  // Migração: bancos criados antes do caixa não têm vendas.caixa_id
+  const colunas = db.prepare('PRAGMA table_info(vendas)').all().map((c) => c.name);
+  if (!colunas.includes('caixa_id')) db.exec('ALTER TABLE vendas ADD COLUMN caixa_id INTEGER REFERENCES caixas(id)');
 }
 
 module.exports = { abrirBanco };

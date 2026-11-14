@@ -202,6 +202,8 @@ function criarLogica(db) {
   // ---------------- Vendas ----------------
   L.registrarVenda = (dados) => {
     pessoa(dados.vendedor_id, 'vendedor');
+    const caixa = caixaAberto();
+    exigir(caixa, 'O caixa está fechado. Abra o caixa antes de vender.');
     exigir(Array.isArray(dados.itens) && dados.itens.length > 0, 'Adicione pelo menos um produto.');
     exigir(Array.isArray(dados.pagamentos) && dados.pagamentos.length > 0, 'Informe a forma de pagamento.');
     const desconto = dados.desconto ?? 0;
@@ -238,8 +240,8 @@ function criarLogica(db) {
     if (troco > 0) liquido.set('dinheiro', liquido.get('dinheiro') - troco);
 
     return transacao(db, () => {
-      const v = db.prepare(`INSERT INTO vendas (vendedor_id, subtotal, desconto, total, custo_total, recebido, troco)
-        VALUES (?,?,?,?,0,?,?)`).run(dados.vendedor_id, subtotal, desconto, total, recebido, troco);
+      const v = db.prepare(`INSERT INTO vendas (vendedor_id, subtotal, desconto, total, custo_total, recebido, troco, caixa_id)
+        VALUES (?,?,?,?,0,?,?,?)`).run(dados.vendedor_id, subtotal, desconto, total, recebido, troco, caixa.id);
       const vendaId = v.lastInsertRowid;
       let custoTotal = 0;
       const insItem = db.prepare(`INSERT INTO venda_itens (venda_id, produto_id, quantidade, preco_unitario, custo_total) VALUES (?,?,?,?,?)`);
@@ -279,6 +281,10 @@ function criarLogica(db) {
     const v = db.prepare('SELECT * FROM vendas WHERE id=?').get(id);
     exigir(v, 'Venda não encontrada.');
     exigir(!v.cancelada, 'Venda já cancelada.');
+    if (v.caixa_id) {
+      const cx = db.prepare('SELECT fechado_em FROM caixas WHERE id=?').get(v.caixa_id);
+      exigir(!cx.fechado_em, 'Esta venda é de um caixa já fechado e não pode mais ser cancelada.');
+    }
     return transacao(db, () => {
       const movs = db.prepare(`SELECT m.lote_id, m.quantidade FROM movimentos_lote m
         JOIN venda_itens vi ON vi.id=m.venda_item_id WHERE vi.venda_id=?`).all(id);
@@ -392,6 +398,100 @@ function criarLogica(db) {
       ORDER BY l.validade`).all(`+${dias} days`);
     return { estoque_baixo: estoqueBaixo, vencendo };
   };
+
+  // ---------------- Caixa ----------------
+  function caixaAberto() { return db.prepare('SELECT * FROM caixas WHERE fechado_em IS NULL').get() || null; }
+
+  // Totais de um caixa calculados a partir das vendas e movimentos
+  function calcularCaixa(cx) {
+    const vendas = db.prepare(`SELECT COUNT(*) AS qtd, COALESCE(SUM(total),0) AS total
+      FROM vendas WHERE caixa_id=? AND cancelada=0`).get(cx.id);
+    const canceladas = db.prepare('SELECT COUNT(*) AS qtd FROM vendas WHERE caixa_id=? AND cancelada=1').get(cx.id).qtd;
+    const porMetodo = Object.fromEntries(METODOS_VENDA.map((m) => [m, 0]));
+    for (const r of db.prepare(`SELECT vp.metodo, SUM(vp.valor) AS valor FROM venda_pagamentos vp
+      JOIN vendas v ON v.id=vp.venda_id WHERE v.caixa_id=? AND v.cancelada=0 GROUP BY vp.metodo`).all(cx.id)) porMetodo[r.metodo] = r.valor;
+    const movimentos = db.prepare(`SELECT m.*, p.nome AS pessoa_nome FROM movimentos_caixa m
+      JOIN pessoas p ON p.id=m.pessoa_id WHERE caixa_id=? ORDER BY m.id`).all(cx.id);
+    const sangrias = movimentos.filter((m) => m.tipo === 'sangria').reduce((s, m) => s + m.valor, 0);
+    const reforcos = movimentos.filter((m) => m.tipo === 'reforco').reduce((s, m) => s + m.valor, 0);
+    return {
+      vendas: vendas.qtd, canceladas, total_vendas: vendas.total, por_metodo: porMetodo,
+      sangrias, reforcos, movimentos,
+      dinheiro_esperado: cx.fundo_inicial + porMetodo.dinheiro + reforcos - sangrias,
+    };
+  }
+
+  L.obterCaixa = (id) => {
+    const cx = db.prepare(`SELECT c.*, a.nome AS aberto_por_nome, f.nome AS fechado_por_nome FROM caixas c
+      JOIN pessoas a ON a.id=c.aberto_por LEFT JOIN pessoas f ON f.id=c.fechado_por WHERE c.id=?`).get(id);
+    if (!cx) return null;
+    const atual = calcularCaixa(cx);
+    if (cx.resumo_json) {
+      const foto = JSON.parse(cx.resumo_json);
+      delete cx.resumo_json;
+      return { ...cx, ...atual, ...foto, dinheiro_esperado: cx.dinheiro_esperado, aberto: false };
+    }
+    delete cx.resumo_json;
+    return { ...cx, ...atual, aberto: true };
+  };
+
+  L.caixaAtual = () => { const cx = caixaAberto(); return cx ? L.obterCaixa(cx.id) : null; };
+
+  L.abrirCaixa = ({ pessoa_id, fundo_inicial }) => {
+    pessoa(pessoa_id);
+    exigir(inteiroNaoNegativo(fundo_inicial ?? 0), 'Fundo de troco inválido.');
+    exigir(!caixaAberto(), 'Já existe um caixa aberto.');
+    const r = db.prepare('INSERT INTO caixas (aberto_por, fundo_inicial) VALUES (?,?)').run(pessoa_id, fundo_inicial ?? 0);
+    return L.obterCaixa(r.lastInsertRowid);
+  };
+
+  L.movimentarCaixa = ({ pessoa_id, tipo, valor, motivo }) => {
+    pessoa(pessoa_id);
+    exigir(['sangria', 'reforco'].includes(tipo), 'Tipo de movimento inválido.');
+    exigir(inteiroPositivo(valor), 'Valor inválido.');
+    const cx = caixaAberto();
+    exigir(cx, 'Não há caixa aberto.');
+    if (tipo === 'sangria') {
+      const esperado = calcularCaixa(cx).dinheiro_esperado;
+      exigir(valor <= esperado, `Sangria maior que o dinheiro no caixa (${(esperado / 100).toFixed(2).replace('.', ',')}).`);
+    }
+    db.prepare('INSERT INTO movimentos_caixa (caixa_id, tipo, valor, motivo, pessoa_id) VALUES (?,?,?,?,?)')
+      .run(cx.id, tipo, valor, texto(motivo) ? motivo.trim() : null, pessoa_id);
+    return L.obterCaixa(cx.id);
+  };
+
+  // conferidos: valores opcionais de pix/débito/crédito conferidos no extrato/maquininha
+  L.fecharCaixa = ({ pessoa_id, dinheiro_contado, conferidos, observacao }) => {
+    pessoa(pessoa_id);
+    exigir(inteiroNaoNegativo(dinheiro_contado), 'Informe o dinheiro contado.');
+    const conf = {};
+    for (const [m, v] of Object.entries(conferidos || {})) {
+      if (v == null || v === '') continue;
+      exigir(METODOS_VENDA.includes(m) && m !== 'dinheiro', 'Método conferido inválido.');
+      exigir(inteiroNaoNegativo(v), 'Valor conferido inválido.');
+      conf[m] = v;
+    }
+    return transacao(db, () => {
+      const cx = caixaAberto();
+      exigir(cx, 'Não há caixa aberto.');
+      const t = calcularCaixa(cx);
+      const diferencas = { dinheiro: dinheiro_contado - t.dinheiro_esperado };
+      for (const [m, v] of Object.entries(conf)) diferencas[m] = v - t.por_metodo[m];
+      const foto = {
+        vendas: t.vendas, canceladas: t.canceladas, total_vendas: t.total_vendas, por_metodo: t.por_metodo,
+        sangrias: t.sangrias, reforcos: t.reforcos, conferidos: conf, diferencas,
+      };
+      db.prepare(`UPDATE caixas SET fechado_em=datetime('now','localtime'), fechado_por=?, dinheiro_esperado=?,
+        dinheiro_contado=?, diferenca=?, resumo_json=?, observacao=? WHERE id=?`).run(
+        pessoa_id, t.dinheiro_esperado, dinheiro_contado, diferencas.dinheiro, JSON.stringify(foto),
+        texto(observacao) ? observacao.trim() : null, cx.id);
+      return L.obterCaixa(cx.id);
+    });
+  };
+
+  L.listarCaixas = ({ de, ate } = {}) => db.prepare(`SELECT id FROM caixas
+    WHERE date(aberto_em) BETWEEN ? AND ? ORDER BY id DESC LIMIT 100`)
+    .all(de || '0000-01-01', ate || '9999-12-31').map((r) => L.obterCaixa(r.id));
 
   L.constantes = () => ({ METODOS_COMPRA, METODOS_VENDA, MOTIVOS_PERDA });
 

@@ -10,6 +10,7 @@ function preparar() {
   const caio = L.salvarPessoa({ nome: 'Caio', socio: false, vendedor: true });
   const cerveja = L.salvarProduto({ nome: 'Cerveja lata', preco_venda: 600, estoque_minimo: 5 });
   const agua = L.salvarProduto({ nome: 'Água', preco_venda: 300 });
+  L.abrirCaixa({ pessoa_id: ana.id, fundo_inicial: 5000 });
   return { L, ana, bruno, caio, cerveja, agua };
 }
 
@@ -121,4 +122,62 @@ test('alertas de estoque baixo e vencimento', () => {
   const a = L.alertas(7);
   assert.ok(a.estoque_baixo.some((p) => p.id === cerveja.id));
   assert.equal(a.vencendo.length, 1);
+});
+
+test('caixa: venda exige caixa aberto; só um caixa aberto por vez', () => {
+  const L = criarLogica(abrirBanco(':memory:'));
+  const ana = L.salvarPessoa({ nome: 'Ana', socio: true, vendedor: true });
+  const p = L.salvarProduto({ nome: 'Gelo', preco_venda: 1000 });
+  L.registrarCompra({ metodo_pagamento: 'pix', pago_por: ana.id, itens: [{ produto_id: p.id, quantidade: 5, custo_unitario: 400 }] });
+  assert.throws(() => L.registrarVenda({ vendedor_id: ana.id, itens: [{ produto_id: p.id, quantidade: 1 }],
+    pagamentos: [{ metodo: 'pix', valor: 1000 }] }), /caixa está fechado/);
+  L.abrirCaixa({ pessoa_id: ana.id, fundo_inicial: 0 });
+  assert.throws(() => L.abrirCaixa({ pessoa_id: ana.id, fundo_inicial: 0 }), /Já existe/);
+});
+
+test('caixa: fechamento calcula esperado, sobra/falta e conferência de cartão', () => {
+  const { L, ana, caio, cerveja } = preparar(); // caixa aberto com fundo de R$ 50
+  L.registrarCompra({ metodo_pagamento: 'pix', pago_por: ana.id,
+    itens: [{ produto_id: cerveja.id, quantidade: 20, custo_unitario: 300 }] });
+  // dinheiro: 1800 (pagou 2000, troco 200)
+  L.registrarVenda({ vendedor_id: caio.id, itens: [{ produto_id: cerveja.id, quantidade: 3 }], pagamentos: [{ metodo: 'dinheiro', valor: 2000 }] });
+  L.registrarVenda({ vendedor_id: caio.id, itens: [{ produto_id: cerveja.id, quantidade: 2 }], pagamentos: [{ metodo: 'debito', valor: 1200 }] });
+  const cancelada = L.registrarVenda({ vendedor_id: caio.id, itens: [{ produto_id: cerveja.id, quantidade: 1 }], pagamentos: [{ metodo: 'dinheiro', valor: 600 }] });
+  L.cancelarVenda(cancelada.id, ana.id);
+  L.movimentarCaixa({ pessoa_id: ana.id, tipo: 'reforco', valor: 1000, motivo: 'troco' });
+  L.movimentarCaixa({ pessoa_id: ana.id, tipo: 'sangria', valor: 3000, motivo: 'depósito' });
+  assert.throws(() => L.movimentarCaixa({ pessoa_id: ana.id, tipo: 'sangria', valor: 999999 }), /maior que o dinheiro/);
+
+  const atual = L.caixaAtual();
+  // 5000 fundo + 1800 vendas + 1000 reforço - 3000 sangria
+  assert.equal(atual.dinheiro_esperado, 4800);
+  assert.equal(atual.por_metodo.debito, 1200);
+  assert.equal(atual.vendas, 2);
+  assert.equal(atual.canceladas, 1);
+
+  const f = L.fecharCaixa({ pessoa_id: ana.id, dinheiro_contado: 4750, conferidos: { debito: 1200, pix: '' } });
+  assert.equal(f.aberto, false);
+  assert.equal(f.diferenca, -50); // faltou R$ 0,50
+  assert.equal(f.diferencas.debito, 0);
+  assert.equal(f.diferencas.pix, undefined);
+  assert.equal(L.caixaAtual(), null);
+  assert.equal(L.listarCaixas().length, 1);
+
+  // venda de caixa fechado não pode ser cancelada
+  const vendaFechada = L.listarVendas().find((v) => !v.cancelada);
+  assert.throws(() => L.cancelarVenda(vendaFechada.id, ana.id), /caixa já fechado/);
+  assert.throws(() => L.fecharCaixa({ pessoa_id: ana.id, dinheiro_contado: 0 }), /Não há caixa/);
+});
+
+test('migração adiciona caixa_id em banco antigo', () => {
+  const { DatabaseSync } = require('node:sqlite');
+  const fs = require('node:fs'); const os = require('node:os'); const path = require('node:path');
+  const arq = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'gel-')), 'velho.db');
+  const velho = new DatabaseSync(arq);
+  velho.exec(`CREATE TABLE pessoas (id INTEGER PRIMARY KEY, nome TEXT, socio INT, vendedor INT, ativo INT);
+    CREATE TABLE vendas (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, vendedor_id INT, subtotal INT, desconto INT, total INT,
+      custo_total REAL, recebido INT, troco INT, cancelada INT DEFAULT 0, cancelada_em TEXT, cancelada_por INT);`);
+  velho.close();
+  const db = abrirBanco(arq);
+  assert.ok(db.prepare('PRAGMA table_info(vendas)').all().some((c) => c.name === 'caixa_id'));
 });

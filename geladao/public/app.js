@@ -104,13 +104,20 @@ const App = (() => {
   }
 
   async function telaVender() {
-    S.produtos = await api('GET', '/api/produtos');
+    [S.produtos, S.caixa] = await Promise.all([api('GET', '/api/produtos'), api('GET', '/api/caixa')]);
     if (!S.usuario.vendedor) {
       $('#tela').innerHTML = `<div class="cartao vazio">${esc(S.usuario.nome)} não está cadastrado(a) como vendedor.<br><br>
         <button class="btn" onclick="App.trocarUsuario()">Trocar de usuário</button></div>`;
       return;
     }
-    $('#tela').innerHTML = `<div class="layout-venda">
+    if (!S.caixa) {
+      $('#tela').innerHTML = `<div class="cartao login"><h2>💰 Caixa fechado</h2>
+        <p class="suave">Para vender, abra o caixa informando o fundo de troco.</p>
+        <button class="btn largo" onclick="App.telaCaixa()">Abrir caixa</button></div>`;
+      return;
+    }
+    $('#tela').innerHTML = `<button class="barra-caixa" onclick="App.telaCaixa()">💰 Caixa aberto · gaveta ${reais(S.caixa.dinheiro_esperado)} · vendas ${reais(S.caixa.total_vendas)} <b>Caixa ›</b></button>
+      <div class="layout-venda">
       <section>
         <input id="busca" type="search" placeholder="🔎 Buscar produto..." value="${esc(S.busca)}" oninput="App.buscar(this.value)">
         <div id="grade" class="grade-produtos" style="margin-top:10px"></div>
@@ -421,9 +428,129 @@ const App = (() => {
     await tentar(async () => { await api('POST', `/api/vendas/${id}/cancelar`, { pessoa_id: S.usuario.id }); aviso('Venda cancelada'); telaRelatorios(); });
   }
 
+  // ---------- CAIXA ----------
+  const CEDULAS = [20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 25, 10, 5];
+  const difTexto = (d) => (d === 0 ? '<b class="pos">✔ Bateu</b>' : d > 0 ? `<b class="pos">Sobrou ${reais(d)}</b>` : `<b class="neg">Faltou ${reais(-d)}</b>`);
+
+  async function telaCaixa() {
+    const [cx, historico] = await Promise.all([api('GET', '/api/caixa'), api('GET', '/api/caixas')]);
+    S.caixa = cx;
+    const fechados = historico.filter((c) => !c.aberto);
+    const hist = `<h3>Fechamentos anteriores</h3><div class="cartao"><ul class="lista">${fechados.map((c) => `<li class="entre" onclick="App.verFechamento(${c.id})" style="cursor:pointer">
+      <span><b>${dataBR(c.aberto_em)}</b> → ${c.fechado_em.slice(11, 16)}<div class="suave">${esc(c.fechado_por_nome)} · ${c.vendas} venda(s) · ${reais(c.total_vendas)}</div></span>
+      <span>${difTexto(c.diferenca)}</span></li>`).join('') || '<li class="vazio">Nenhum fechamento ainda.</li>'}</ul></div>`;
+
+    if (!cx) {
+      $('#tela').innerHTML = `<h2>💰 Caixa</h2>
+        <div class="cartao"><p><b>O caixa está fechado.</b></p><p class="suave">Conte o dinheiro de troco que está na gaveta para abrir.</p>
+          <label>Fundo de troco (R$)<input id="cx-fundo" inputmode="decimal" placeholder="0,00"></label>
+          <button class="btn largo" onclick="App.abrirCaixa()">Abrir caixa</button></div>${hist}`;
+      return;
+    }
+    const pm = cx.por_metodo;
+    $('#tela').innerHTML = `<h2>💰 Caixa aberto</h2>
+      <p class="suave">Aberto por ${esc(cx.aberto_por_nome)} em ${dataBR(cx.aberto_em)}</p>
+      <div class="kpis">
+        <div class="kpi"><div class="suave">Vendas</div><div class="v">${reais(cx.total_vendas)}</div><div class="suave">${cx.vendas} venda(s)${cx.canceladas ? ` · ${cx.canceladas} cancelada(s)` : ''}</div></div>
+        <div class="kpi destaque"><div class="suave">Dinheiro na gaveta</div><div class="v">${reais(cx.dinheiro_esperado)}</div><div class="suave">esperado</div></div>
+      </div>
+      <div class="cartao"><h3 style="margin-top:0">Dinheiro</h3><ul class="lista">
+        <li class="entre"><span>Fundo de troco</span><b>${reais(cx.fundo_inicial)}</b></li>
+        <li class="entre"><span>Vendas em dinheiro</span><b>+ ${reais(pm.dinheiro)}</b></li>
+        <li class="entre"><span>Reforços</span><b>+ ${reais(cx.reforcos)}</b></li>
+        <li class="entre"><span>Sangrias</span><b>− ${reais(cx.sangrias)}</b></li>
+        <li class="entre"><b>Esperado na gaveta</b><b>${reais(cx.dinheiro_esperado)}</b></li></ul>
+        <div class="linha" style="margin-top:8px"><button class="btn sec" onclick="App.dialogoMovimento('sangria')">− Sangria (retirada)</button>
+          <button class="btn sec" onclick="App.dialogoMovimento('reforco')">+ Reforço de troco</button></div>
+        ${cx.movimentos.length ? `<ul class="lista" style="margin-top:8px">${cx.movimentos.map((m) => `<li class="entre suave"><span>${m.data.slice(11, 16)} · ${m.tipo === 'sangria' ? 'Sangria' : 'Reforço'} · ${esc(m.pessoa_nome)}${m.motivo ? ' · ' + esc(m.motivo) : ''}</span><span>${m.tipo === 'sangria' ? '−' : '+'} ${reais(m.valor)}</span></li>`).join('')}</ul>` : ''}</div>
+      <div class="cartao"><h3 style="margin-top:0">Outras formas</h3><ul class="lista">
+        ${['pix', 'debito', 'credito'].map((m) => `<li class="entre"><span>${NOMES_METODO[m]}</span><b>${reais(pm[m])}</b></li>`).join('')}</ul></div>
+
+      <div class="cartao" style="border-color:var(--azul)"><h3 style="margin-top:0">Fechar caixa</h3>
+        <details><summary class="suave" style="cursor:pointer;margin-bottom:8px">🧮 Contar cédulas e moedas</summary>
+          <div class="grade-cedulas">${CEDULAS.map((c) => `<label>${reais(c)}<input type="number" min="0" inputmode="numeric" data-cedula="${c}" oninput="App.somarCedulas()"></label>`).join('')}</div>
+        </details>
+        <label>Dinheiro contado na gaveta (R$)<input id="fc-dinheiro" inputmode="decimal" placeholder="0,00" oninput="App.previaFechamento()"></label>
+        <div id="fc-dif-dinheiro" style="margin-bottom:10px"></div>
+        <p class="suave" style="margin:0 0 6px">Conferência com maquininha/extrato (opcional):</p>
+        <div class="linha">${['pix', 'debito', 'credito'].map((m) => `<label>${NOMES_METODO[m]} (sistema ${reais(pm[m])})
+          <input id="fc-${m}" inputmode="decimal" placeholder="0,00" oninput="App.previaFechamento()"><span id="fc-dif-${m}" class="suave"></span></label>`).join('')}</div>
+        <label>Observação<input id="fc-obs" placeholder="Ex.: faltou troco de R$ 0,50"></label>
+        <button class="btn largo" onclick="App.fecharCaixa()">Fechar caixa</button></div>${hist}`;
+  }
+  async function abrirCaixa() {
+    const fundo = centavos($('#cx-fundo').value) ?? 0;
+    await tentar(async () => {
+      await api('POST', '/api/caixa/abrir', { pessoa_id: S.usuario.id, fundo_inicial: fundo });
+      aviso('Caixa aberto ✔'); ir('vender');
+    });
+  }
+  function dialogoMovimento(tipo) {
+    abrirDialogo(`<h2>${tipo === 'sangria' ? 'Sangria (retirar dinheiro)' : 'Reforço de troco'}</h2>
+      ${tipo === 'sangria' ? `<p class="suave">Dinheiro na gaveta: ${reais(S.caixa.dinheiro_esperado)}</p>` : ''}
+      <label>Valor (R$)<input id="mv-valor" inputmode="decimal" placeholder="0,00"></label>
+      <label>Motivo<input id="mv-motivo" placeholder="${tipo === 'sangria' ? 'Ex.: depósito no banco' : 'Ex.: troco extra'}"></label>
+      <div class="linha"><button class="btn sec" onclick="App.fecharDialogo()">Cancelar</button>
+      <button class="btn" onclick="App.salvarMovimento('${tipo}')">Confirmar</button></div>`);
+  }
+  async function salvarMovimento(tipo) {
+    const valor = centavos($('#mv-valor').value);
+    if (!valor) return aviso('Informe o valor', true);
+    await tentar(async () => {
+      await api('POST', '/api/caixa/movimento', { pessoa_id: S.usuario.id, tipo, valor, motivo: $('#mv-motivo').value });
+      fecharDialogo(); aviso(tipo === 'sangria' ? 'Sangria registrada' : 'Reforço registrado'); telaCaixa();
+    });
+  }
+  function somarCedulas() {
+    const total = [...document.querySelectorAll('[data-cedula]')].reduce((s, el) => s + (Number(el.value) || 0) * Number(el.dataset.cedula), 0);
+    $('#fc-dinheiro').value = paraCampo(total);
+    previaFechamento();
+  }
+  function previaFechamento() {
+    const cx = S.caixa;
+    const din = centavos($('#fc-dinheiro').value);
+    $('#fc-dif-dinheiro').innerHTML = din == null ? '' : `Esperado ${reais(cx.dinheiro_esperado)} · ${difTexto(din - cx.dinheiro_esperado)}`;
+    for (const m of ['pix', 'debito', 'credito']) {
+      const v = centavos($('#fc-' + m).value);
+      $('#fc-dif-' + m).innerHTML = v == null ? '' : difTexto(v - cx.por_metodo[m]);
+    }
+  }
+  async function fecharCaixa() {
+    const din = centavos($('#fc-dinheiro').value);
+    if (din == null) return aviso('Informe o dinheiro contado', true);
+    const dif = din - S.caixa.dinheiro_esperado;
+    const msg = dif === 0 ? 'O dinheiro bateu.' : dif > 0 ? `Sobrou ${reais(dif)}.` : `Faltou ${reais(-dif)}.`;
+    if (!confirm(`${msg}\nConfirmar o fechamento do caixa? Depois de fechado, as vendas dele não podem ser canceladas.`)) return;
+    const conferidos = {};
+    for (const m of ['pix', 'debito', 'credito']) { const v = centavos($('#fc-' + m).value); if (v != null) conferidos[m] = v; }
+    await tentar(async () => {
+      const f = await api('POST', '/api/caixa/fechar', { pessoa_id: S.usuario.id, dinheiro_contado: din, conferidos, observacao: $('#fc-obs').value });
+      S.caixa = null; await telaCaixa(); mostrarFechamento(f);
+    });
+  }
+  async function verFechamento(id) { await tentar(async () => mostrarFechamento(await api('GET', '/api/caixas/' + id))); }
+  function mostrarFechamento(c) {
+    const pm = c.por_metodo;
+    abrirDialogo(`<h2>Fechamento de caixa #${c.id}</h2>
+      <p class="suave">${dataBR(c.aberto_em)} até ${dataBR(c.fechado_em)}<br>Aberto por ${esc(c.aberto_por_nome)} · fechado por ${esc(c.fechado_por_nome)}</p>
+      <ul class="lista">
+        <li class="entre"><span>Vendas (${c.vendas})${c.canceladas ? ` <span class="suave">${c.canceladas} cancelada(s)</span>` : ''}</span><b>${reais(c.total_vendas)}</b></li>
+        <li class="entre"><span>Fundo de troco</span><span>${reais(c.fundo_inicial)}</span></li>
+        <li class="entre"><span>Vendas em dinheiro</span><span>+ ${reais(pm.dinheiro)}</span></li>
+        <li class="entre"><span>Reforços / Sangrias</span><span>+ ${reais(c.reforcos)} / − ${reais(c.sangrias)}</span></li>
+        <li class="entre"><span>Dinheiro esperado</span><b>${reais(c.dinheiro_esperado)}</b></li>
+        <li class="entre"><span>Dinheiro contado</span><b>${reais(c.dinheiro_contado)}</b></li>
+        <li class="entre"><span>Diferença</span>${difTexto(c.diferenca)}</li>
+        ${['pix', 'debito', 'credito'].map((m) => `<li class="entre"><span>${NOMES_METODO[m]}</span><span>${reais(pm[m])}${c.conferidos?.[m] != null ? ' · conferido ' + reais(c.conferidos[m]) + ' ' + difTexto(c.diferencas[m]) : ''}</span></li>`).join('')}
+      </ul>
+      ${c.observacao ? `<p class="suave">Obs.: ${esc(c.observacao)}</p>` : ''}
+      <button class="btn largo" onclick="App.fecharDialogo()">OK</button>`);
+  }
+
   // ---------- MAIS (cadastros) ----------
   function telaMais() {
     $('#tela').innerHTML = `<h2>Cadastros e ajustes</h2><div class="menu-mais">
+      <button onclick="App.telaCaixa()"><span>💰</span>Caixa</button>
       <button onclick="App.telaProdutos()"><span>🍺</span>Produtos</button>
       <button onclick="App.telaPessoas()"><span>👥</span>Sócios e vendedores</button>
       <button onclick="App.telaTiposCusto()"><span>🚚</span>Custos extras</button>
@@ -531,5 +658,6 @@ const App = (() => {
   return { ir, trocarUsuario, entrar, primeiroUso, buscar, addCarrinho, mudarQtd, escolherMetodo, addPagamento, setPagamento, rmPagamento,
     setDesconto, limparVenda, finalizarVenda, dialogoPerda, salvarPerda, setEntrada, setItem, addItemEntrada, rmItem, addExtra, setExtra, rmExtra,
     salvarEntrada, setPeriodo, setDatas, cancelarVenda, telaProdutos, dialogoProduto, salvarProduto, telaPessoas, dialogoPessoa, salvarPessoa,
-    telaTiposCusto, salvarTipoCusto, excluirTipoCusto, telaDespesas, salvarDespesa, fecharDialogo };
+    telaTiposCusto, salvarTipoCusto, excluirTipoCusto, telaDespesas, salvarDespesa, fecharDialogo,
+    telaCaixa, abrirCaixa, dialogoMovimento, salvarMovimento, somarCedulas, previaFechamento, fecharCaixa, verFechamento };
 })();

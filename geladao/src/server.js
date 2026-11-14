@@ -39,6 +39,12 @@ function criarServidor(db) {
     ['POST', '/api/despesas', (_, b) => L.registrarDespesa(b)],
     ['GET', '/api/relatorios/resumo', (_, __, q) => L.resumo(q)],
     ['GET', '/api/relatorios/socios', (_, __, q) => L.acertoSocios(q)],
+    ['GET', '/api/caixa', () => L.caixaAtual()],
+    ['GET', '/api/caixas', (_, __, q) => L.listarCaixas(q)],
+    ['GET', '/api/caixas/:id', (p) => L.obterCaixa(p.id)],
+    ['POST', '/api/caixa/abrir', (_, b) => L.abrirCaixa(b)],
+    ['POST', '/api/caixa/movimento', (_, b) => L.movimentarCaixa(b)],
+    ['POST', '/api/caixa/fechar', (_, b) => L.fecharCaixa(b)],
     ['GET', '/api/alertas', (_, __, q) => L.alertas(q.dias ? Number(q.dias) : 7)],
   ].map(([m, padrao, h]) => {
     const nomes = [];

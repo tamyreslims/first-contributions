@@ -24,11 +24,12 @@ Variáveis opcionais: `PORT` (porta, padrão 3000) e `DB_FILE` (caminho do banco
 
 | Tela | O que faz |
 |---|---|
+| **Caixa** | Abertura com fundo de troco, sangria (retirada) e reforço de troco, fechamento com contador de cédulas e moedas. Mostra o esperado na gaveta e a diferença (sobra ou falta). Pix, débito e crédito podem ser conferidos com a maquininha. Guarda o histórico de fechamentos. |
 | **Vender** | Toque nos produtos, ajuste a quantidade, aplique desconto e escolha o pagamento (dinheiro com troco, Pix, débito, crédito ou dividido). A venda baixa o estoque. |
 | **Estoque** | Quantidade, custo, lucro por unidade, margem e próxima validade. Alertas de estoque baixo e de vencimento (7 dias). Registro de perdas (vencido, quebrado, consumo). |
 | **Entrada** | Compra com vários produtos, quem pagou (sócio), forma de pagamento, validade de cada item e custos extras. Mostra o custo final e o lucro por unidade antes de salvar. |
 | **Relatórios** | Faturamento, custo, lucro bruto, perdas, despesas e **lucro final**. Caixa por forma de pagamento, vendas por vendedor, mais vendidos, acerto entre sócios e histórico de vendas (com cancelamento). |
-| **Mais** | Cadastro de produtos, sócios/vendedores, tipos de custo extra e despesas gerais. |
+| **Mais** | Caixa, cadastro de produtos, sócios/vendedores, tipos de custo extra e despesas gerais. |
 
 ## Regras de cálculo
 
@@ -38,7 +39,9 @@ Variáveis opcionais: `PORT` (porta, padrão 3000) e `DB_FILE` (caminho do banco
 - **Saída por validade (FEFO)**: a venda sempre tira primeiro do lote que vence antes. O custo da venda é o custo real dos lotes usados.
 - **Lucro final** = vendas − custo das mercadorias vendidas − perdas − despesas gerais.
 - **Acerto entre sócios**: soma o que cada sócio pagou (compras + despesas) e compara com a parte igual de cada um.
-- **Cancelar venda** devolve os produtos aos mesmos lotes.
+- **Cancelar venda** devolve os produtos aos mesmos lotes. Venda de caixa já fechado não pode ser cancelada.
+- **Caixa**: só se vende com caixa aberto, e só existe um caixa aberto por vez.
+  Dinheiro esperado na gaveta = fundo de troco + vendas em dinheiro + reforços − sangrias.
 - Valores são guardados em centavos para evitar erros de arredondamento.
 
 ## Testes
@@ -62,7 +65,6 @@ geladao/
 ## Próximos passos sugeridos
 
 - Login com PIN por vendedor
-- Fechamento de caixa diário (conferência de dinheiro)
 - Hospedar na nuvem para acessar fora do Wi-Fi
 - Leitor de código de barras (quando tiver o leitor)
 - Exportar relatórios para planilha
