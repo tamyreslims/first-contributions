@@ -13,48 +13,84 @@ const PUBLIC = path.join(__dirname, '..', 'public');
 const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png' };
 
-function criarServidor(db) {
-  const L = criarLogica(db);
+// Campos de custo/lucro que vendedores não veem
+const CAMPOS_CUSTO = ['ultimo_custo', 'custo_medio_estoque', 'lucro_unitario', 'margem'];
+const semCusto = (p) => Object.fromEntries(Object.entries(p).filter(([k]) => !CAMPOS_CUSTO.includes(k)));
 
-  // [método, padrão, handler(params, corpo, query)]
+function criarServidor(db, opcoes = {}) {
+  const L = criarLogica(db, opcoes);
+  const PUB = { publica: true };
+  const SOCIO = { socio: true };
+
+  // [método, padrão, handler(params, corpo, query, usuario, token), opções]
+  // Sem opções: precisa estar logado. PUB: aberta. SOCIO: só sócios.
   const rotas = [
+    // ---- acesso ----
+    ['GET', '/api/inicio', () => ({
+      configurado: L.temPessoas(),
+      pessoas: L.listarPessoas().filter((p) => p.ativo).map(({ id, nome, socio, vendedor, tem_pin }) => ({ id, nome, socio, vendedor, tem_pin })),
+    }), PUB],
+    ['POST', '/api/primeiro-uso', (_, b) => L.configurarPrimeiroUso(b), PUB],
+    ['POST', '/api/login', (_, b) => L.login(b), PUB],
+    ['POST', '/api/logout', (_, __, ___, ____, token) => L.logout(token)],
+    ['GET', '/api/eu', (_, __, ___, u) => u],
+    ['POST', '/api/eu/pin', (_, b, __, u) => L.trocarPin(u.id, b)],
     ['GET', '/api/constantes', () => L.constantes()],
+
+    // ---- cadastros (sócio) ----
     ['GET', '/api/pessoas', () => L.listarPessoas()],
-    ['POST', '/api/pessoas', (_, b) => L.salvarPessoa(b)],
-    ['PUT', '/api/pessoas/:id', (p, b) => L.salvarPessoa(b, p.id)],
-    ['GET', '/api/produtos', () => L.listarProdutos()],
-    ['POST', '/api/produtos', (_, b) => L.salvarProduto(b)],
-    ['PUT', '/api/produtos/:id', (p, b) => L.salvarProduto(b, p.id)],
-    ['GET', '/api/tipos-custo', () => L.listarTiposCusto()],
-    ['POST', '/api/tipos-custo', (_, b) => L.salvarTipoCusto(b)],
-    ['PUT', '/api/tipos-custo/:id', (p, b) => L.salvarTipoCusto(b, p.id)],
-    ['DELETE', '/api/tipos-custo/:id', (p) => L.excluirTipoCusto(p.id)],
-    ['GET', '/api/compras', (_, __, q) => L.listarCompras(q)],
-    ['POST', '/api/compras', (_, b) => L.registrarCompra(b)],
-    ['GET', '/api/vendas', (_, __, q) => L.listarVendas({ ...q, vendedor_id: q.vendedor_id ? Number(q.vendedor_id) : undefined })],
-    ['POST', '/api/vendas', (_, b) => L.registrarVenda(b)],
-    ['POST', '/api/vendas/:id/cancelar', (p, b) => L.cancelarVenda(p.id, b.pessoa_id)],
-    ['GET', '/api/perdas', (_, __, q) => L.listarPerdas(q)],
-    ['POST', '/api/perdas', (_, b) => L.registrarPerda(b)],
-    ['GET', '/api/despesas', (_, __, q) => L.listarDespesas(q)],
-    ['POST', '/api/despesas', (_, b) => L.registrarDespesa(b)],
-    ['GET', '/api/relatorios/resumo', (_, __, q) => L.resumo(q)],
-    ['GET', '/api/relatorios/socios', (_, __, q) => L.acertoSocios(q)],
-    ['GET', '/api/caixa', () => L.caixaAtual()],
-    ['GET', '/api/caixas', (_, __, q) => L.listarCaixas(q)],
-    ['GET', '/api/caixas/:id', (p) => L.obterCaixa(p.id)],
-    ['POST', '/api/caixa/abrir', (_, b) => L.abrirCaixa(b)],
-    ['POST', '/api/caixa/movimento', (_, b) => L.movimentarCaixa(b)],
-    ['POST', '/api/caixa/fechar', (_, b) => L.fecharCaixa(b)],
+    ['POST', '/api/pessoas', (_, b) => {
+      if (!b.pin) throw Object.assign(new Error('Defina um PIN de 4 números para a pessoa.'), { status: 400 });
+      return L.salvarPessoa(b);
+    }, SOCIO],
+    ['PUT', '/api/pessoas/:id', (p, b) => L.salvarPessoa(b, p.id), SOCIO],
+    ['GET', '/api/produtos', (_, __, ___, u) => (u.socio ? L.listarProdutos() : L.listarProdutos().map(semCusto))],
+    ['POST', '/api/produtos', (_, b) => L.salvarProduto(b), SOCIO],
+    ['PUT', '/api/produtos/:id', (p, b) => L.salvarProduto(b, p.id), SOCIO],
+    ['GET', '/api/tipos-custo', () => L.listarTiposCusto(), SOCIO],
+    ['POST', '/api/tipos-custo', (_, b) => L.salvarTipoCusto(b), SOCIO],
+    ['PUT', '/api/tipos-custo/:id', (p, b) => L.salvarTipoCusto(b, p.id), SOCIO],
+    ['DELETE', '/api/tipos-custo/:id', (p) => L.excluirTipoCusto(p.id), SOCIO],
+
+    // ---- entradas, perdas, despesas (sócio) ----
+    ['GET', '/api/compras', (_, __, q) => L.listarCompras(q), SOCIO],
+    ['POST', '/api/compras', (_, b) => L.registrarCompra(b), SOCIO],
+    ['GET', '/api/perdas', (_, __, q) => L.listarPerdas(q), SOCIO],
+    ['POST', '/api/perdas', (_, b, __, u) => L.registrarPerda({ ...b, registrado_por: u.id }), SOCIO],
+    ['GET', '/api/despesas', (_, __, q) => L.listarDespesas(q), SOCIO],
+    ['POST', '/api/despesas', (_, b) => L.registrarDespesa(b), SOCIO],
+
+    // ---- vendas ----
+    ['POST', '/api/vendas', (_, b, __, u) => L.registrarVenda({ ...b, vendedor_id: u.id })],
+    ['GET', '/api/vendas', (_, __, q) => L.listarVendas({ ...q, vendedor_id: q.vendedor_id ? Number(q.vendedor_id) : undefined }), SOCIO],
+    ['POST', '/api/vendas/:id/cancelar', (p, _, __, u) => L.cancelarVenda(p.id, u.id), SOCIO],
+
+    // ---- relatórios (sócio) ----
+    ['GET', '/api/relatorios/resumo', (_, __, q) => L.resumo(q), SOCIO],
+    ['GET', '/api/relatorios/socios', (_, __, q) => L.acertoSocios(q), SOCIO],
     ['GET', '/api/planilhas/estoque', (_, __, q) => ({
       arquivo: planilhaEstoque(db, L, q),
       nome: `geladao-estoque_${q.de && q.de !== '0000-01-01' ? q.de : 'inicio'}_a_${q.ate && q.ate !== '9999-12-31' ? q.ate : 'hoje'}.xlsx`,
-    })],
-    ['GET', '/api/alertas', (_, __, q) => L.alertas(q.dias ? Number(q.dias) : 7)],
-  ].map(([m, padrao, h]) => {
+    }), SOCIO],
+    ['GET', '/api/alertas', (_, __, q, u) => {
+      const a = L.alertas(q.dias ? Number(q.dias) : 7);
+      return u.socio ? a : { ...a, estoque_baixo: a.estoque_baixo.map(semCusto) };
+    }],
+
+    // ---- caixa: vendedor abre, reforça e fecha; sangria só sócio ----
+    ['GET', '/api/caixa', () => L.caixaAtual()],
+    ['GET', '/api/caixas', (_, __, q) => L.listarCaixas(q)],
+    ['GET', '/api/caixas/:id', (p) => L.obterCaixa(p.id)],
+    ['POST', '/api/caixa/abrir', (_, b, __, u) => L.abrirCaixa({ ...b, pessoa_id: u.id })],
+    ['POST', '/api/caixa/movimento', (_, b, __, u) => {
+      if (b.tipo === 'sangria' && !u.socio) throw Object.assign(new Error('Só sócios podem fazer sangria.'), { status: 403 });
+      return L.movimentarCaixa({ ...b, pessoa_id: u.id });
+    }],
+    ['POST', '/api/caixa/fechar', (_, b, __, u) => L.fecharCaixa({ ...b, pessoa_id: u.id })],
+  ].map(([m, padrao, h, op = {}]) => {
     const nomes = [];
     const re = new RegExp('^' + padrao.replace(/:(\w+)/g, (_, n) => { nomes.push(n); return '(\\d+)'; }) + '$');
-    return { m, re, nomes, h };
+    return { m, re, nomes, h, ...op };
   });
 
   function responder(res, status, obj) {
@@ -103,8 +139,15 @@ function criarServidor(db) {
     const match = url.pathname.match(rota.re);
     const params = Object.fromEntries(rota.nomes.map((n, i) => [n, Number(match[i + 1])]));
     try {
+      const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+      let usuario = null;
+      if (!rota.publica) {
+        usuario = L.sessao(token);
+        if (!usuario) return responder(res, 401, { erro: 'Sessão expirada. Digite seu PIN.', sessao: false });
+        if (rota.socio && !usuario.socio) return responder(res, 403, { erro: 'Apenas sócios podem fazer isso.' });
+      }
       const corpo = ['POST', 'PUT'].includes(req.method) ? await lerCorpo(req) : {};
-      const resultado = rota.h(params, corpo, Object.fromEntries(url.searchParams));
+      const resultado = rota.h(params, corpo, Object.fromEntries(url.searchParams), usuario, token);
       if (resultado && Buffer.isBuffer(resultado.arquivo)) {
         res.writeHead(200, {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -126,7 +169,7 @@ if (require.main === module) {
   const porta = Number(process.env.PORT) || 3000;
   const arquivoBanco = process.env.DB_FILE || path.join(__dirname, '..', 'dados', 'geladao.db');
   const db = abrirBanco(arquivoBanco);
-  criarServidor(db).listen(porta, '0.0.0.0', () => {
+  criarServidor(db, { sessaoMinutos: process.env.SESSAO_MINUTOS }).listen(porta, '0.0.0.0', () => {
     console.log(`\n🧊 Geladão rodando!`);
     console.log(`   Neste computador:  http://localhost:${porta}`);
     for (const lista of Object.values(os.networkInterfaces())) {

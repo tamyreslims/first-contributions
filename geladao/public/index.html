@@ -12,12 +12,12 @@
 <body>
   <header class="topo">
     <h1>🧊 Geladão</h1>
-    <button id="btn-usuario" class="usuario" onclick="App.trocarUsuario()"></button>
+    <button id="btn-usuario" class="usuario" onclick="App.bloquear()" title="Bloquear tela" hidden></button>
   </header>
 
   <main id="tela"></main>
 
-  <nav class="abas" id="abas">
+  <nav class="abas" id="abas" hidden>
     <button data-aba="vender" onclick="App.ir('vender')"><span>🛒</span>Vender</button>
     <button data-aba="estoque" onclick="App.ir('estoque')"><span>📦</span>Estoque</button>
     <button data-aba="entrada" onclick="App.ir('entrada')"><span>📥</span>Entrada</button>

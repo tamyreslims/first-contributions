@@ -166,9 +166,24 @@ function criarTabelas(db) {
     );
   `);
 
+  db.exec(`
+    -- Sessões de login (token guardado no aparelho)
+    CREATE TABLE IF NOT EXISTS sessoes (
+      token       TEXT PRIMARY KEY,
+      pessoa_id   INTEGER NOT NULL REFERENCES pessoas(id),
+      criado_em   TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+      ultimo_uso  INTEGER NOT NULL           -- epoch ms
+    );
+  `);
+
+  const colunasDe = (t) => db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
   // Migração: bancos criados antes do caixa não têm vendas.caixa_id
-  const colunas = db.prepare('PRAGMA table_info(vendas)').all().map((c) => c.name);
-  if (!colunas.includes('caixa_id')) db.exec('ALTER TABLE vendas ADD COLUMN caixa_id INTEGER REFERENCES caixas(id)');
+  if (!colunasDe('vendas').includes('caixa_id')) db.exec('ALTER TABLE vendas ADD COLUMN caixa_id INTEGER REFERENCES caixas(id)');
+  // Migração: PIN de acesso (hash scrypt), tentativas erradas e bloqueio temporário
+  const colPessoas = colunasDe('pessoas');
+  if (!colPessoas.includes('pin_hash')) db.exec('ALTER TABLE pessoas ADD COLUMN pin_hash TEXT');
+  if (!colPessoas.includes('pin_erros')) db.exec('ALTER TABLE pessoas ADD COLUMN pin_erros INTEGER NOT NULL DEFAULT 0');
+  if (!colPessoas.includes('bloqueado_ate')) db.exec('ALTER TABLE pessoas ADD COLUMN bloqueado_ate INTEGER');
 }
 
 module.exports = { abrirBanco };

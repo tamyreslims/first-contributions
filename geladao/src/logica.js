@@ -4,6 +4,21 @@ const METODOS_COMPRA = ['dinheiro', 'pix', 'debito', 'credito', 'boleto', 'trans
 const METODOS_VENDA = ['dinheiro', 'pix', 'debito', 'credito'];
 const MOTIVOS_PERDA = ['vencido', 'quebrado', 'consumo', 'outro'];
 
+const crypto = require('node:crypto');
+
+// PIN guardado como hash scrypt com sal aleatório: "sal:hash" em hex
+function hashPin(pin) {
+  const sal = crypto.randomBytes(16);
+  return sal.toString('hex') + ':' + crypto.scryptSync(pin, sal, 32).toString('hex');
+}
+function conferirPin(pin, guardado) {
+  const [salHex, hashHex] = String(guardado).split(':');
+  if (!salHex || !hashHex) return false;
+  const calc = crypto.scryptSync(pin, Buffer.from(salHex, 'hex'), 32);
+  const ref = Buffer.from(hashHex, 'hex');
+  return ref.length === calc.length && crypto.timingSafeEqual(ref, calc);
+}
+
 class ErroValidacao extends Error {
   constructor(msg) { super(msg); this.status = 400; }
 }
@@ -26,11 +41,16 @@ function transacao(db, fn) {
   }
 }
 
-function criarLogica(db) {
+function criarLogica(db, opcoes = {}) {
   const L = {};
 
-  // ---------------- Pessoas ----------------
-  L.listarPessoas = () => db.prepare('SELECT * FROM pessoas ORDER BY ativo DESC, nome').all();
+  // ---------------- Pessoas e acesso (PIN) ----------------
+  const CAMPOS_PESSOA = 'id, nome, socio, vendedor, ativo, (pin_hash IS NOT NULL) AS tem_pin';
+  const umaPessoa = (id) => db.prepare(`SELECT ${CAMPOS_PESSOA} FROM pessoas WHERE id=?`).get(id);
+  L.listarPessoas = () => db.prepare(`SELECT ${CAMPOS_PESSOA} FROM pessoas ORDER BY ativo DESC, nome`).all();
+  L.temPessoas = () => !!db.prepare('SELECT 1 FROM pessoas LIMIT 1').get();
+
+  function validarPin(pin) { exigir(typeof pin === 'string' && /^\d{4}$/.test(pin), 'O PIN deve ter 4 números.'); }
 
   L.salvarPessoa = (dados, id) => {
     exigir(texto(dados.nome), 'Informe o nome.');
@@ -38,15 +58,95 @@ function criarLogica(db) {
     const vendedor = dados.vendedor ? 1 : 0;
     const ativo = dados.ativo === false ? 0 : 1;
     exigir(socio || vendedor, 'A pessoa precisa ser sócio, vendedor ou os dois.');
-    if (id) {
-      const r = db.prepare('UPDATE pessoas SET nome=?, socio=?, vendedor=?, ativo=? WHERE id=?')
-        .run(dados.nome.trim(), socio, vendedor, ativo, id);
-      exigir(r.changes === 1, 'Pessoa não encontrada.');
-      return db.prepare('SELECT * FROM pessoas WHERE id=?').get(id);
+    const pin = dados.pin == null || dados.pin === '' ? null : String(dados.pin);
+    if (pin) validarPin(pin);
+    return transacao(db, () => {
+      if (id) {
+        const r = db.prepare('UPDATE pessoas SET nome=?, socio=?, vendedor=?, ativo=? WHERE id=?')
+          .run(dados.nome.trim(), socio, vendedor, ativo, id);
+        exigir(r.changes === 1, 'Pessoa não encontrada.');
+        if (pin) db.prepare('UPDATE pessoas SET pin_hash=?, pin_erros=0, bloqueado_ate=NULL WHERE id=?').run(hashPin(pin), id);
+        if (!ativo || !socio) {
+          exigir(db.prepare('SELECT 1 FROM pessoas WHERE socio=1 AND ativo=1').get(), 'É preciso manter pelo menos um sócio ativo.');
+        }
+        // Inativado ou PIN trocado: derruba as sessões abertas dessa pessoa
+        if (!ativo || pin) db.prepare('DELETE FROM sessoes WHERE pessoa_id=?').run(id);
+        return umaPessoa(id);
+      }
+      const r = db.prepare('INSERT INTO pessoas (nome, socio, vendedor, ativo, pin_hash) VALUES (?,?,?,?,?)')
+        .run(dados.nome.trim(), socio, vendedor, ativo, pin ? hashPin(pin) : null);
+      return umaPessoa(r.lastInsertRowid);
+    });
+  };
+
+  const MAX_ERROS = 5;
+  const BLOQUEIO_MS = 5 * 60 * 1000;
+  const SESSAO_MS = (Number(opcoes.sessaoMinutos) || 10) * 60 * 1000;
+  const agora = opcoes.relogio || (() => Date.now());
+
+  // Primeiro uso: cria o primeiro sócio já com PIN e entra
+  L.configurarPrimeiroUso = ({ nome, pin }) => {
+    exigir(!L.temPessoas(), 'O sistema já foi configurado.');
+    validarPin(String(pin ?? ''));
+    const p = L.salvarPessoa({ nome, socio: true, vendedor: true, pin: String(pin) });
+    return criarSessao(p.id);
+  };
+
+  function criarSessao(pessoaId) {
+    const token = crypto.randomBytes(32).toString('hex');
+    db.prepare('INSERT INTO sessoes (token, pessoa_id, ultimo_uso) VALUES (?,?,?)').run(token, pessoaId, agora());
+    return { token, pessoa: umaPessoa(pessoaId), expira_minutos: SESSAO_MS / 60000 };
+  }
+
+  // Login: se a pessoa ainda não tem PIN (cadastro antigo), o PIN informado vira o PIN dela.
+  L.login = ({ pessoa_id, pin }) => {
+    const p = db.prepare('SELECT * FROM pessoas WHERE id=? AND ativo=1').get(pessoa_id);
+    exigir(p, 'Pessoa não encontrada ou inativa.');
+    validarPin(String(pin ?? ''));
+    const t = agora();
+    if (p.bloqueado_ate && p.bloqueado_ate > t) {
+      const min = Math.ceil((p.bloqueado_ate - t) / 60000);
+      throw Object.assign(new ErroValidacao(`Muitas tentativas erradas. Tente de novo em ${min} minuto(s).`), { status: 429 });
     }
-    const r = db.prepare('INSERT INTO pessoas (nome, socio, vendedor, ativo) VALUES (?,?,?,?)')
-      .run(dados.nome.trim(), socio, vendedor, ativo);
-    return db.prepare('SELECT * FROM pessoas WHERE id=?').get(r.lastInsertRowid);
+    if (!p.pin_hash) {
+      db.prepare('UPDATE pessoas SET pin_hash=?, pin_erros=0, bloqueado_ate=NULL WHERE id=?').run(hashPin(String(pin)), p.id);
+      return { ...criarSessao(p.id), pin_criado: true };
+    }
+    if (!conferirPin(String(pin), p.pin_hash)) {
+      const erros = p.pin_erros + 1;
+      if (erros >= MAX_ERROS) {
+        db.prepare('UPDATE pessoas SET pin_erros=0, bloqueado_ate=? WHERE id=?').run(t + BLOQUEIO_MS, p.id);
+        throw Object.assign(new ErroValidacao('PIN errado. Acesso bloqueado por 5 minutos.'), { status: 429 });
+      }
+      db.prepare('UPDATE pessoas SET pin_erros=? WHERE id=?').run(erros, p.id);
+      throw Object.assign(new ErroValidacao(`PIN errado. Restam ${MAX_ERROS - erros} tentativa(s).`), { status: 401 });
+    }
+    db.prepare('UPDATE pessoas SET pin_erros=0, bloqueado_ate=NULL WHERE id=?').run(p.id);
+    return criarSessao(p.id);
+  };
+
+  // Valida o token; renova o prazo a cada uso. Retorna a pessoa ou null.
+  L.sessao = (token) => {
+    if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) return null;
+    const s = db.prepare(`SELECT s.ultimo_uso, p.id, p.nome, p.socio, p.vendedor, p.ativo FROM sessoes s
+      JOIN pessoas p ON p.id=s.pessoa_id WHERE s.token=?`).get(token);
+    const t = agora();
+    if (!s || !s.ativo || t - s.ultimo_uso > SESSAO_MS) {
+      if (s) db.prepare('DELETE FROM sessoes WHERE token=?').run(token);
+      return null;
+    }
+    db.prepare('UPDATE sessoes SET ultimo_uso=? WHERE token=?').run(t, token);
+    return { id: s.id, nome: s.nome, socio: s.socio, vendedor: s.vendedor, ativo: s.ativo };
+  };
+
+  L.logout = (token) => { db.prepare('DELETE FROM sessoes WHERE token=?').run(token); return { ok: true }; };
+
+  L.trocarPin = (pessoaId, { atual, novo }) => {
+    const p = db.prepare('SELECT * FROM pessoas WHERE id=?').get(pessoaId);
+    exigir(p && p.pin_hash && conferirPin(String(atual ?? ''), p.pin_hash), 'PIN atual errado.');
+    validarPin(String(novo ?? ''));
+    db.prepare('UPDATE pessoas SET pin_hash=? WHERE id=?').run(hashPin(String(novo)), pessoaId);
+    return { ok: true };
   };
 
   function pessoa(id, papel) {

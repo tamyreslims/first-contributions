@@ -21,8 +21,11 @@ const App = (() => {
   const dataBR = (s) => (s ? s.slice(0, 10).split('-').reverse().join('/') + (s.length > 10 ? ' ' + s.slice(11, 16) : '') : '—');
 
   async function api(metodo, url, corpo) {
-    const r = await fetch(url, { method: metodo, headers: { 'Content-Type': 'application/json' }, body: corpo ? JSON.stringify(corpo) : undefined });
+    const headers = { 'Content-Type': 'application/json' };
+    if (S.token) headers.Authorization = 'Bearer ' + S.token;
+    const r = await fetch(url, { method: metodo, headers, body: corpo ? JSON.stringify(corpo) : undefined });
     const dados = await r.json().catch(() => ({}));
+    if (r.status === 401 && dados.sessao === false) { bloquear(); throw new Error(dados.erro); }
     if (!r.ok) throw new Error(dados.erro || 'Falha de comunicação com o servidor');
     return dados;
   }
@@ -48,52 +51,153 @@ const App = (() => {
 
   async function carregarBase() {
     const [pessoas, produtos, tipos, constantes] = await Promise.all([
-      api('GET', '/api/pessoas'), api('GET', '/api/produtos'), api('GET', '/api/tipos-custo'),
+      api('GET', '/api/pessoas'), api('GET', '/api/produtos'),
+      S.usuario.socio ? api('GET', '/api/tipos-custo') : Promise.resolve([]),
       S.constantes ? Promise.resolve(S.constantes) : api('GET', '/api/constantes')]);
     Object.assign(S, { pessoas, produtos, tiposCusto: tipos, constantes });
-    const id = Number(lerLS('geladao.usuario'));
-    S.usuario = pessoas.find((p) => p.id === id && p.ativo) || null;
   }
+  const ehSocio = () => !!S.usuario?.socio;
 
   function ir(aba) {
+    if (!ehSocio() && ['entrada', 'relatorios'].includes(aba)) aba = 'vender';
     S.aba = aba;
     document.querySelectorAll('#abas button').forEach((b) => b.classList.toggle('ativa', b.dataset.aba === aba));
     render();
   }
 
-  async function render() {
-    $('#btn-usuario').textContent = S.usuario ? '👤 ' + S.usuario.nome : 'Entrar';
-    if (!S.pessoas.length) return telaPrimeiroUso();
-    if (!S.usuario) return telaLogin();
-    const telas = { vender: telaVender, estoque: telaEstoque, entrada: telaEntrada, relatorios: telaRelatorios, mais: telaMais };
-    await (telas[S.aba] || telaVender)();
+  // Esconde as abas que o perfil não usa
+  function aplicarPerfil() {
+    const nav = $('#abas');
+    nav.hidden = !S.usuario;
+    let visiveis = 0;
+    nav.querySelectorAll('button').forEach((b) => {
+      const so = ['entrada', 'relatorios'].includes(b.dataset.aba);
+      b.hidden = so && !ehSocio();
+      if (!b.hidden) visiveis++;
+    });
+    nav.style.gridTemplateColumns = `repeat(${visiveis}, 1fr)`;
+    $('#btn-usuario').textContent = S.usuario ? '👤 ' + S.usuario.nome + ' · 🔒' : '';
+    $('#btn-usuario').hidden = !S.usuario;
   }
 
-  // ---------- primeiro uso / login ----------
+  async function render() {
+    aplicarPerfil();
+    if (!S.usuario) return telaAcesso();
+    const telas = { vender: telaVender, estoque: telaEstoque, entrada: telaEntrada, relatorios: telaRelatorios, mais: telaMais };
+    try { await (telas[S.aba] || telaVender)(); }
+    catch (e) { if (S.usuario) aviso(e.message, true); } // sem usuário: a tela de PIN já apareceu
+  }
+
+  // ---------- acesso: primeiro uso, escolha da pessoa, PIN ----------
+  // S.acesso = { pessoa, modo: 'entrar'|'criar'|'confirmar', pin, primeiro, bloqueio }
+  async function telaAcesso() {
+    if (!S.inicio) S.inicio = await api('GET', '/api/inicio');
+    if (!S.inicio.configurado) return telaPrimeiroUso();
+    if (S.acesso?.pessoa) return telaPin();
+    const lista = S.inicio.pessoas;
+    $('#tela').innerHTML = `<div class="cartao login"><h2>Quem está usando?</h2>
+      <ul class="lista">${lista.map((p) => `<li><button class="btn sec largo" onclick="App.escolherPessoa(${p.id})">${esc(p.nome)}
+        <span class="suave">${p.socio ? 'sócio' : 'vendedor'}</span></button></li>`).join('')}</ul>
+      ${lista.length ? '' : '<p class="vazio">Nenhuma pessoa ativa.</p>'}</div>`;
+  }
   function telaPrimeiroUso() {
     $('#tela').innerHTML = `<div class="cartao login">
       <h2>Bem-vindo ao Geladão!</h2>
-      <p class="suave">Comece cadastrando a primeira pessoa (sócio e vendedor).</p>
-      <label>Nome<input id="pu-nome" autofocus></label>
-      <button class="btn largo" onclick="App.primeiroUso()">Começar</button></div>`;
+      <p class="suave">Cadastre o primeiro sócio. Ele vai poder cadastrar as outras pessoas.</p>
+      <label>Seu nome<input id="pu-nome" autofocus></label>
+      <button class="btn largo" onclick="App.primeiroUso()">Continuar</button></div>`;
   }
-  async function primeiroUso() {
-    const nome = $('#pu-nome').value;
-    await tentar(async () => {
-      const p = await api('POST', '/api/pessoas', { nome, socio: true, vendedor: true });
-      gravarLS('geladao.usuario', p.id);
-      await carregarBase(); ir('mais');
-      aviso('Pronto! Agora cadastre os produtos.');
-    });
+  function primeiroUso() {
+    const nome = $('#pu-nome').value.trim();
+    if (!nome) return aviso('Informe seu nome', true);
+    S.acesso = { pessoa: { nome }, modo: 'criar', pin: '', primeiro: true };
+    telaPin();
   }
-  function telaLogin() {
-    const vend = S.pessoas.filter((p) => p.ativo && p.vendedor);
-    $('#tela').innerHTML = `<div class="cartao login"><h2>Quem está vendendo?</h2>
-      <ul class="lista">${vend.map((p) => `<li><button class="btn sec" onclick="App.entrar(${p.id})">${esc(p.nome)}</button></li>`).join('')}</ul>
-      ${vend.length ? '' : '<p class="vazio">Nenhum vendedor ativo.</p>'}</div>`;
+  function escolherPessoa(id) {
+    const p = S.inicio.pessoas.find((x) => x.id === id);
+    S.acesso = { pessoa: p, modo: p.tem_pin ? 'entrar' : 'criar', pin: '' };
+    telaPin();
   }
-  function entrar(id) { gravarLS('geladao.usuario', id); S.usuario = S.pessoas.find((p) => p.id === id); ir('vender'); }
-  function trocarUsuario() { gravarLS('geladao.usuario', null); S.usuario = null; S.carrinho = []; render(); }
+  const TITULO_PIN = { entrar: 'Digite seu PIN', criar: 'Crie um PIN de 4 números', confirmar: 'Repita o PIN' };
+  function telaPin() {
+    const A = S.acesso;
+    $('#tela').innerHTML = `<div class="cartao login">
+      <h2>${A.bloqueio ? '🔒 Tela bloqueada' : esc(A.pessoa.nome)}</h2>
+      ${A.bloqueio ? `<p>${esc(A.pessoa.nome)}</p>` : ''}
+      <p class="suave">${TITULO_PIN[A.modo]}${A.modo === 'criar' && !A.primeiro ? '<br>(primeiro acesso)' : ''}</p>
+      <div class="pin-pontos" id="pin-pontos">${[0, 1, 2, 3].map((i) => `<span class="${i < A.pin.length ? 'cheio' : ''}"></span>`).join('')}</div>
+      <div class="teclado">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button onclick="App.digitoPin('${n}')">${n}</button>`).join('')}
+        <button class="sec" onclick="App.voltarAcesso()" aria-label="Voltar">↩</button><button onclick="App.digitoPin('0')">0</button>
+        <button class="sec" onclick="App.apagarPin()" aria-label="Apagar">⌫</button></div>
+      ${A.bloqueio ? '<button class="btn sec largo" style="margin-top:12px" onclick="App.trocarUsuario()">Entrar com outra pessoa</button>' : ''}
+    </div>`;
+  }
+  function atualizarPontos() {
+    const el = $('#pin-pontos');
+    if (el) el.innerHTML = [0, 1, 2, 3].map((i) => `<span class="${i < S.acesso.pin.length ? 'cheio' : ''}"></span>`).join('');
+  }
+  function apagarPin() { if (S.acesso) { S.acesso.pin = S.acesso.pin.slice(0, -1); atualizarPontos(); } }
+  function voltarAcesso() {
+    if (S.acesso?.modo === 'confirmar') { S.acesso.modo = 'criar'; S.acesso.pin = ''; return telaPin(); }
+    S.acesso = null; render();
+  }
+  async function digitoPin(d) {
+    const A = S.acesso;
+    if (!A || A.enviando || A.pin.length >= 4) return;
+    A.pin += d; atualizarPontos();
+    if (A.pin.length < 4) return;
+    if (A.modo === 'criar') { A.primeiroPin = A.pin; A.modo = 'confirmar'; A.pin = ''; return setTimeout(telaPin, 150); }
+    if (A.modo === 'confirmar' && A.pin !== A.primeiroPin) {
+      aviso('Os PINs não conferem. Tente de novo.', true);
+      A.modo = 'criar'; A.pin = ''; return setTimeout(telaPin, 150);
+    }
+    A.enviando = true;
+    try {
+      const r = A.primeiro
+        ? await api('POST', '/api/primeiro-uso', { nome: A.pessoa.nome, pin: A.pin })
+        : await api('POST', '/api/login', { pessoa_id: A.pessoa.id, pin: A.pin });
+      const mesmo = A.bloqueio && A.pessoa.id === r.pessoa.id;
+      S.token = r.token; S.usuario = r.pessoa; S.expiraMin = r.expira_minutos; S.acesso = null; S.inicio = null;
+      gravarLS('geladao.token', r.token);
+      if (!mesmo) { S.carrinho = []; S.pagamentos = []; S.desconto = 0; S.entrada = null; }
+      marcarAtividade();
+      await carregarBase();
+      if (A.primeiro) { ir('mais'); aviso('Pronto! Agora cadastre os produtos e as pessoas.'); }
+      else { ir(mesmo ? S.aba : 'vender'); if (r.pin_criado) aviso('PIN criado ✔'); }
+    } catch (e) {
+      aviso(e.message, true);
+      A.pin = ''; A.enviando = false; atualizarPontos();
+      document.querySelector('.teclado')?.classList.add('tremer');
+      setTimeout(() => document.querySelector('.teclado')?.classList.remove('tremer'), 400);
+    }
+  }
+  // Teclado físico também digita o PIN
+  document.addEventListener('keydown', (e) => {
+    if (!S.acesso || !$('#pin-pontos')) return;
+    if (/^\d$/.test(e.key)) digitoPin(e.key);
+    else if (e.key === 'Backspace') apagarPin();
+  });
+
+  // Bloqueia: guarda quem estava e pede o PIN de novo
+  function bloquear() {
+    if (!S.usuario && !S.token) return;
+    const quem = S.usuario || S.acesso?.pessoa;
+    if (S.token) fetch('/api/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + S.token } }).catch(() => {});
+    S.token = null; gravarLS('geladao.token', null);
+    S.usuario = null;
+    S.acesso = quem ? { pessoa: { ...quem, tem_pin: 1 }, modo: 'entrar', pin: '', bloqueio: true } : null;
+    fecharDialogo();
+    render();
+  }
+  function trocarUsuario() { bloquear(); S.acesso = null; S.carrinho = []; S.pagamentos = []; S.inicio = null; render(); }
+
+  // Bloqueio automático por inatividade (mesmo prazo da sessão no servidor)
+  let ultimaAtividade = Date.now();
+  function marcarAtividade() { ultimaAtividade = Date.now(); }
+  ['pointerdown', 'keydown'].forEach((ev) => document.addEventListener(ev, marcarAtividade, { passive: true }));
+  setInterval(() => {
+    if (S.usuario && Date.now() - ultimaAtividade > (S.expiraMin || 10) * 60000) bloquear();
+  }, 15000);
 
   // ---------- VENDER ----------
   function totaisVenda() {
@@ -247,10 +351,10 @@ const App = (() => {
         <div class="entre"><div><b>${esc(p.nome)}</b>${p.categoria ? `<span class="selo">${esc(p.categoria)}</span>` : ''}
           ${baixo.has(p.id) ? '<span class="selo alerta">baixo</span>' : ''}</div>
           <b style="font-size:1.2rem">${p.estoque}</b></div>
-        <div class="suave">Venda ${reais(p.preco_venda)} · Custo ${reais(p.custo_medio_estoque ?? p.ultimo_custo)} ·
-          Lucro/un. <span class="${p.lucro_unitario < 0 ? 'neg' : 'pos'}">${reais(p.lucro_unitario)}</span> (${pct(p.margem)})
+        <div class="suave">Venda ${reais(p.preco_venda)}${ehSocio() ? ` · Custo ${reais(p.custo_medio_estoque ?? p.ultimo_custo)} ·
+          Lucro/un. <span class="${p.lucro_unitario < 0 ? 'neg' : 'pos'}">${reais(p.lucro_unitario)}</span> (${pct(p.margem)})` : ''}
           · Validade ${dataBR(p.proxima_validade)}</div>
-        ${p.estoque > 0 ? `<button class="btn peq perigo" style="margin-top:6px" onclick="App.dialogoPerda(${p.id})">Registrar perda</button>` : ''}
+        ${p.estoque > 0 && ehSocio() ? `<button class="btn peq perigo" style="margin-top:6px" onclick="App.dialogoPerda(${p.id})">Registrar perda</button>` : ''}
       </li>`).join('') || '<li class="vazio">Nenhum produto cadastrado.</li>'}</ul></div>`;
   }
   function dialogoPerda(id) {
@@ -395,7 +499,7 @@ const App = (() => {
       api('GET', '/api/vendas' + q), api('GET', '/api/despesas' + q)]);
     const per = { hoje: 'Hoje', '7d': '7 dias', mes: 'Este mês', mespassado: 'Mês passado', tudo: 'Tudo', custom: 'Escolher' };
     $('#tela').innerHTML = `<div class="entre"><h2>Relatórios</h2>
-        <a class="btn peq" href="/api/planilhas/estoque${q}" download>⬇ Planilha de estoque</a></div>
+        <button class="btn peq" onclick="App.baixarPlanilha('${q}')">⬇ Planilha de estoque</button></div>
       <div class="chips">${Object.entries(per).map(([k, v]) => `<button class="${S.periodo === k ? 'sel' : ''}" onclick="App.setPeriodo('${k}')">${v}</button>`).join('')}</div>
       ${S.periodo === 'custom' ? `<div class="linha"><label>De<input type="date" id="r-de" value="${de}" onchange="App.setDatas()"></label><label>Até<input type="date" id="r-ate" value="${ate}" onchange="App.setDatas()"></label></div>` : ''}
       <div class="kpis">
@@ -423,6 +527,18 @@ const App = (() => {
           ${v.cancelada ? '<span class="selo erro">cancelada</span>' : `<button class="btn peq perigo" style="margin-top:4px" onclick="App.cancelarVenda(${v.id})">Cancelar venda</button>`}</li>`).join('') || '<li class="vazio">Nenhuma venda.</li>'}</ul></div>
       <div class="cartao"><h3 style="margin-top:0">Despesas</h3><ul class="lista">
         ${despesas.map((d) => `<li class="entre"><span>${esc(d.descricao)}<div class="suave">${dataBR(d.data)} · ${esc(d.pago_por_nome)}</div></span><b>${reais(d.valor)}</b></li>`).join('') || '<li class="vazio">Nenhuma despesa.</li>'}</ul></div>`;
+  }
+  // Download com o token de acesso (link simples não envia o cabeçalho)
+  async function baixarPlanilha(q) {
+    await tentar(async () => {
+      const r = await fetch('/api/planilhas/estoque' + q, { headers: { Authorization: 'Bearer ' + S.token } });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); if (r.status === 401) bloquear(); throw new Error(d.erro || 'Falha ao gerar planilha'); }
+      const nome = (r.headers.get('content-disposition') || '').match(/filename="([^"]+)"/)?.[1] || 'geladao-estoque.xlsx';
+      const url = URL.createObjectURL(await r.blob());
+      const a = Object.assign(document.createElement('a'), { href: url, download: nome });
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    });
   }
   async function cancelarVenda(id) {
     if (!confirm(`Cancelar a venda #${id}? Os produtos voltam para o estoque.`)) return;
@@ -461,7 +577,7 @@ const App = (() => {
         <li class="entre"><span>Reforços</span><b>+ ${reais(cx.reforcos)}</b></li>
         <li class="entre"><span>Sangrias</span><b>− ${reais(cx.sangrias)}</b></li>
         <li class="entre"><b>Esperado na gaveta</b><b>${reais(cx.dinheiro_esperado)}</b></li></ul>
-        <div class="linha" style="margin-top:8px"><button class="btn sec" onclick="App.dialogoMovimento('sangria')">− Sangria (retirada)</button>
+        <div class="linha" style="margin-top:8px">${ehSocio() ? `<button class="btn sec" onclick="App.dialogoMovimento('sangria')">− Sangria (retirada)</button>` : ''}
           <button class="btn sec" onclick="App.dialogoMovimento('reforco')">+ Reforço de troco</button></div>
         ${cx.movimentos.length ? `<ul class="lista" style="margin-top:8px">${cx.movimentos.map((m) => `<li class="entre suave"><span>${m.data.slice(11, 16)} · ${m.tipo === 'sangria' ? 'Sangria' : 'Reforço'} · ${esc(m.pessoa_nome)}${m.motivo ? ' · ' + esc(m.motivo) : ''}</span><span>${m.tipo === 'sangria' ? '−' : '+'} ${reais(m.valor)}</span></li>`).join('')}</ul>` : ''}</div>
       <div class="cartao"><h3 style="margin-top:0">Outras formas</h3><ul class="lista">
@@ -550,13 +666,27 @@ const App = (() => {
 
   // ---------- MAIS (cadastros) ----------
   function telaMais() {
-    $('#tela').innerHTML = `<h2>Cadastros e ajustes</h2><div class="menu-mais">
+    $('#tela').innerHTML = `<h2>${ehSocio() ? 'Cadastros e ajustes' : 'Mais'}</h2><div class="menu-mais">
       <button onclick="App.telaCaixa()"><span>💰</span>Caixa</button>
-      <button onclick="App.telaProdutos()"><span>🍺</span>Produtos</button>
+      ${ehSocio() ? `<button onclick="App.telaProdutos()"><span>🍺</span>Produtos</button>
       <button onclick="App.telaPessoas()"><span>👥</span>Sócios e vendedores</button>
       <button onclick="App.telaTiposCusto()"><span>🚚</span>Custos extras</button>
-      <button onclick="App.telaDespesas()"><span>💡</span>Despesas gerais</button>
+      <button onclick="App.telaDespesas()"><span>💡</span>Despesas gerais</button>` : ''}
+      <button onclick="App.dialogoMeuPin()"><span>🔑</span>Trocar meu PIN</button>
+      <button onclick="App.bloquear()"><span>🔒</span>Bloquear tela</button>
       <button onclick="App.trocarUsuario()"><span>🔄</span>Trocar usuário</button></div>`;
+  }
+  function dialogoMeuPin() {
+    abrirDialogo(`<h2>Trocar meu PIN</h2>
+      <label>PIN atual<input id="mp-atual" type="password" inputmode="numeric" maxlength="4" autocomplete="off"></label>
+      <label>Novo PIN (4 números)<input id="mp-novo" type="password" inputmode="numeric" maxlength="4" autocomplete="off"></label>
+      <label>Repita o novo PIN<input id="mp-novo2" type="password" inputmode="numeric" maxlength="4" autocomplete="off"></label>
+      <div class="linha"><button class="btn sec" onclick="App.fecharDialogo()">Cancelar</button><button class="btn" onclick="App.salvarMeuPin()">Salvar</button></div>`);
+  }
+  async function salvarMeuPin() {
+    const novo = $('#mp-novo').value;
+    if (novo !== $('#mp-novo2').value) return aviso('Os PINs novos não conferem', true);
+    await tentar(async () => { await api('POST', '/api/eu/pin', { atual: $('#mp-atual').value, novo }); fecharDialogo(); aviso('PIN alterado ✔'); });
   }
   const voltar = '<button class="btn sec peq" onclick="App.ir(\'mais\')">← Voltar</button>';
 
@@ -590,7 +720,7 @@ const App = (() => {
     S.pessoas = await api('GET', '/api/pessoas');
     $('#tela').innerHTML = `<div class="entre">${voltar}<button class="btn peq" onclick="App.dialogoPessoa()">+ Nova pessoa</button></div>
       <h2 style="margin-top:12px">Sócios e vendedores</h2><div class="cartao"><ul class="lista">${S.pessoas.map((p) => `<li class="entre ${p.ativo ? '' : 'cancelada'}">
-        <span><b>${esc(p.nome)}</b>${p.socio ? '<span class="selo">sócio</span>' : ''}${p.vendedor ? '<span class="selo">vendedor</span>' : ''}</span>
+        <span><b>${esc(p.nome)}</b>${p.socio ? '<span class="selo">sócio</span>' : ''}${p.vendedor ? '<span class="selo">vendedor</span>' : ''}${p.tem_pin ? '' : '<span class="selo alerta">sem PIN</span>'}</span>
         <button class="btn peq sec" style="flex:0" onclick="App.dialogoPessoa(${p.id})">Editar</button></li>`).join('')}</ul></div>`;
   }
   function dialogoPessoa(id) {
@@ -600,10 +730,16 @@ const App = (() => {
       <label><input type="checkbox" id="pe-socio" style="width:auto" ${p.socio ? 'checked' : ''}> Sócio (paga compras e despesas)</label>
       <label><input type="checkbox" id="pe-vend" style="width:auto" ${p.vendedor ? 'checked' : ''}> Vendedor (registra vendas)</label>
       ${id ? `<label><input type="checkbox" id="pe-ativo" style="width:auto" ${p.ativo ? 'checked' : ''}> Ativo</label>` : ''}
+      <label>${id ? 'Novo PIN (deixe vazio para manter)' : 'PIN de acesso (4 números)'}
+        <input id="pe-pin" type="password" inputmode="numeric" maxlength="4" autocomplete="new-password" placeholder="••••"></label>
+      ${id && !p.tem_pin ? '<p class="suave">Esta pessoa ainda não tem PIN: ela vai criar no primeiro acesso, ou você pode definir aqui.</p>' : ''}
       <div class="linha"><button class="btn sec" onclick="App.fecharDialogo()">Cancelar</button><button class="btn" onclick="App.salvarPessoa(${id || 0})">Salvar</button></div>`);
   }
   async function salvarPessoa(id) {
-    const dados = { nome: $('#pe-nome').value, socio: $('#pe-socio').checked, vendedor: $('#pe-vend').checked, ativo: id ? $('#pe-ativo').checked : true };
+    const pin = $('#pe-pin').value.trim();
+    if (pin && !/^\d{4}$/.test(pin)) return aviso('O PIN deve ter 4 números', true);
+    if (!id && !pin) return aviso('Defina o PIN de acesso', true);
+    const dados = { nome: $('#pe-nome').value, socio: $('#pe-socio').checked, vendedor: $('#pe-vend').checked, ativo: id ? $('#pe-ativo').checked : true, pin: pin || undefined };
     await tentar(async () => {
       await api(id ? 'PUT' : 'POST', '/api/pessoas' + (id ? '/' + id : ''), dados);
       fecharDialogo(); aviso('Salvo'); await carregarBase(); telaPessoas();
@@ -651,14 +787,21 @@ const App = (() => {
 
   // ---------- início ----------
   async function iniciar() {
-    try { await carregarBase(); } catch (e) { $('#tela').innerHTML = `<div class="cartao vazio">Não foi possível conectar ao servidor.<br>${esc(e.message)}</div>`; return; }
+    try {
+      S.token = lerLS('geladao.token');
+      if (S.token) {
+        try { S.usuario = await api('GET', '/api/eu'); await carregarBase(); }
+        catch { S.token = null; S.usuario = null; S.acesso = null; gravarLS('geladao.token', null); }
+      }
+      if (!S.usuario) S.inicio = await api('GET', '/api/inicio');
+    } catch (e) { $('#tela').innerHTML = `<div class="cartao vazio">Não foi possível conectar ao servidor.<br>${esc(e.message)}</div>`; return; }
     ir('vender');
   }
   document.addEventListener('DOMContentLoaded', iniciar);
 
-  return { ir, trocarUsuario, entrar, primeiroUso, buscar, addCarrinho, mudarQtd, escolherMetodo, addPagamento, setPagamento, rmPagamento,
+  return { ir, trocarUsuario, primeiroUso, escolherPessoa, digitoPin, apagarPin, voltarAcesso, bloquear, buscar, addCarrinho, mudarQtd, escolherMetodo, addPagamento, setPagamento, rmPagamento,
     setDesconto, limparVenda, finalizarVenda, dialogoPerda, salvarPerda, setEntrada, setItem, addItemEntrada, rmItem, addExtra, setExtra, rmExtra,
     salvarEntrada, setPeriodo, setDatas, cancelarVenda, telaProdutos, dialogoProduto, salvarProduto, telaPessoas, dialogoPessoa, salvarPessoa,
     telaTiposCusto, salvarTipoCusto, excluirTipoCusto, telaDespesas, salvarDespesa, fecharDialogo,
-    telaCaixa, abrirCaixa, dialogoMovimento, salvarMovimento, somarCedulas, previaFechamento, fecharCaixa, verFechamento };
+    telaCaixa, abrirCaixa, dialogoMeuPin, salvarMeuPin, baixarPlanilha, dialogoMovimento, salvarMovimento, somarCedulas, previaFechamento, fecharCaixa, verFechamento };
 })();

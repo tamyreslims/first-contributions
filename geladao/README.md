@@ -18,7 +18,29 @@ O terminal mostra os endereços de acesso:
 
 Os dados ficam em `geladao/dados/geladao.db`. **Faça cópia desse arquivo** para ter backup.
 
-Variáveis opcionais: `PORT` (porta, padrão 3000) e `DB_FILE` (caminho do banco).
+Variáveis opcionais: `PORT` (porta, padrão 3000), `DB_FILE` (caminho do banco) e
+`SESSAO_MINUTOS` (tempo sem uso até bloquear a tela, padrão 10).
+
+## Acesso com PIN
+
+- No **primeiro uso**, cadastre o primeiro sócio e crie o PIN dele (4 números).
+- Cada pessoa entra tocando no nome e digitando o PIN. Quem cadastra pessoas é um sócio, que já define o PIN inicial.
+- **Bloqueio automático** depois de 10 minutos sem uso. Basta digitar o PIN para continuar de onde parou (a venda em andamento é mantida).
+  Tocar no nome no topo da tela também bloqueia na hora.
+- **5 PINs errados** bloqueiam aquela pessoa por 5 minutos.
+- Esqueceu o PIN? Um sócio define um novo em *Mais › Sócios e vendedores › Editar*.
+- Cada um pode trocar o próprio PIN em *Mais › Trocar meu PIN*.
+- Pessoas cadastradas antes do PIN existir criam o PIN no primeiro acesso.
+- O PIN é guardado criptografado (scrypt), e as permissões são checadas no servidor.
+
+| Pode fazer | Vendedor | Sócio |
+|---|:---:|:---:|
+| Vender, abrir e fechar caixa, reforço de troco | ✅ | ✅ |
+| Ver estoque (quantidade, preço e validade) | ✅ | ✅ |
+| Ver custo, lucro e margem | ❌ | ✅ |
+| Sangria e cancelar venda | ❌ | ✅ |
+| Entradas, perdas, despesas e cadastros | ❌ | ✅ |
+| Relatórios, acerto entre sócios e planilha | ❌ | ✅ |
 
 ## Funcionalidades
 
@@ -76,7 +98,6 @@ geladao/
 
 ## Próximos passos sugeridos
 
-- Login com PIN por vendedor
 - Hospedar na nuvem para acessar fora do Wi-Fi
 - Leitor de código de barras (quando tiver o leitor)
 - Mais planilhas (vendas, entradas, caixa, sócios)

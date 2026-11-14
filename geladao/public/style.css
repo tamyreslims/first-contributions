@@ -139,3 +139,18 @@ dialog::backdrop { background: rgba(0,0,0,.45); }
 .grade-cedulas { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 6px; margin-bottom: 8px; }
 .grade-cedulas label { margin: 0; }
 details summary { list-style-position: inside; }
+
+/* PIN */
+.pin-pontos { display: flex; justify-content: center; gap: 14px; margin: 14px 0 18px; }
+.pin-pontos span { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--azul); }
+.pin-pontos span.cheio { background: var(--azul); }
+.teclado { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 280px; margin: 0 auto; }
+.teclado button {
+  height: 60px; border-radius: 14px; border: 1px solid var(--borda); background: var(--fundo); color: var(--texto);
+  font: inherit; font-size: 1.5rem; font-weight: 600; cursor: pointer; touch-action: manipulation;
+}
+.teclado button:active { background: var(--azul-claro); }
+.teclado button.sec { font-size: 1.2rem; color: var(--suave); }
+.tremer { animation: tremer .35s; }
+@keyframes tremer { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+[hidden] { display: none !important; }
