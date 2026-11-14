@@ -1,0 +1,156 @@
+:root {
+  --azul: #0b6fb8;
+  --azul-claro: #e3f0fb;
+  --fundo: #f3f6fa;
+  --cartao: #ffffff;
+  --texto: #1b2430;
+  --suave: #637083;
+  --borda: #dbe2ea;
+  --verde: #1a8a4a;
+  --vermelho: #c2352b;
+  --amarelo: #b7791f;
+  --amarelo-fundo: #fff6e0;
+  --vermelho-fundo: #fdecea;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --azul: #4ea3e6;
+    --azul-claro: #16304a;
+    --fundo: #0f141a;
+    --cartao: #19212b;
+    --texto: #e6edf5;
+    --suave: #93a1b3;
+    --borda: #2b3644;
+    --verde: #4cc27e;
+    --vermelho: #f07167;
+    --amarelo: #f0b44c;
+    --amarelo-fundo: #3a2e14;
+    --vermelho-fundo: #3d1d1b;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--fundo); color: var(--texto); font-size: 16px;
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
+.topo {
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between;
+  background: var(--azul); color: #fff; padding: 10px 16px;
+}
+.topo h1 { font-size: 1.2rem; margin: 0; }
+.usuario { background: rgba(255,255,255,.18); color: #fff; border: 0; border-radius: 999px; padding: 6px 12px; font-size: .9rem; }
+main { max-width: 960px; margin: 0 auto; padding: 16px; }
+h2 { font-size: 1.15rem; margin: 4px 0 12px; }
+h3 { font-size: 1rem; margin: 16px 0 8px; color: var(--suave); }
+
+.abas {
+  position: fixed; bottom: 0; left: 0; right: 0; display: grid; grid-template-columns: repeat(5, 1fr);
+  background: var(--cartao); border-top: 1px solid var(--borda); padding-bottom: env(safe-area-inset-bottom); z-index: 5;
+}
+.abas button { background: none; border: 0; padding: 8px 0 10px; font-size: .72rem; color: var(--suave); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.abas button span { font-size: 1.3rem; }
+.abas button.ativa { color: var(--azul); font-weight: 600; }
+
+.cartao { background: var(--cartao); border: 1px solid var(--borda); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.linha { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.linha > * { flex: 1 1 120px; }
+.entre { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.suave { color: var(--suave); font-size: .88rem; }
+.pos { color: var(--verde); } .neg { color: var(--vermelho); }
+
+label { display: block; font-size: .85rem; color: var(--suave); margin-bottom: 8px; }
+input, select, textarea {
+  width: 100%; font: inherit; padding: 10px; border-radius: 8px; border: 1px solid var(--borda);
+  background: var(--fundo); color: var(--texto); margin-top: 4px;
+}
+input:focus, select:focus { outline: 2px solid var(--azul); border-color: transparent; }
+
+.btn { display: inline-block; text-decoration: none; font: inherit; border: 0; border-radius: 10px; padding: 11px 16px; background: var(--azul); color: #fff; font-weight: 600; cursor: pointer; }
+.btn.sec { background: var(--azul-claro); color: var(--azul); }
+.btn.perigo { background: var(--vermelho-fundo); color: var(--vermelho); }
+.btn.peq { padding: 6px 10px; font-size: .85rem; }
+.btn.largo { width: 100%; }
+.btn:disabled { opacity: .5; }
+
+/* Vender */
+.grade-produtos { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.produto-btn {
+  text-align: left; background: var(--cartao); border: 1px solid var(--borda); border-radius: 10px; padding: 10px;
+  font: inherit; color: var(--texto); cursor: pointer; min-height: 78px;
+}
+.produto-btn strong { display: block; font-size: .95rem; }
+.produto-btn .preco { color: var(--azul); font-weight: 700; }
+.produto-btn:disabled { opacity: .45; }
+.carrinho-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--borda); }
+.carrinho-item:last-child { border-bottom: 0; }
+.carrinho-item .nome { flex: 1; }
+.qtd { display: flex; align-items: center; gap: 6px; }
+.qtd button { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--borda); background: var(--fundo); color: var(--texto); font-size: 1.1rem; }
+.total-grande { font-size: 1.6rem; font-weight: 800; }
+.metodos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.metodos button { padding: 10px 4px; border-radius: 8px; border: 1px solid var(--borda); background: var(--fundo); color: var(--texto); font: inherit; font-size: .85rem; }
+.metodos button.sel { background: var(--azul); color: #fff; border-color: var(--azul); }
+.layout-venda { display: grid; gap: 12px; }
+@media (min-width: 800px) { .layout-venda { grid-template-columns: 1.4fr 1fr; align-items: start; } .layout-venda > :last-child { position: sticky; top: 64px; } }
+
+/* Tabelas / listas */
+.lista { list-style: none; margin: 0; padding: 0; }
+.lista li { padding: 10px 0; border-bottom: 1px solid var(--borda); }
+.lista li:last-child { border-bottom: 0; }
+.selo { display: inline-block; font-size: .72rem; padding: 2px 8px; border-radius: 999px; background: var(--azul-claro); color: var(--azul); margin-left: 4px; }
+.selo.alerta { background: var(--amarelo-fundo); color: var(--amarelo); }
+.selo.erro { background: var(--vermelho-fundo); color: var(--vermelho); }
+.cancelada { opacity: .55; text-decoration: line-through; }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.kpi { background: var(--cartao); border: 1px solid var(--borda); border-radius: 12px; padding: 12px; }
+.kpi .v { font-size: 1.2rem; font-weight: 700; margin-top: 2px; }
+.kpi.destaque { background: var(--azul); color: #fff; border-color: var(--azul); }
+.kpi.destaque .suave { color: rgba(255,255,255,.8); }
+
+.chips { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 12px; }
+.chips button { flex: none; border: 1px solid var(--borda); background: var(--cartao); color: var(--texto); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: .88rem; }
+.chips button.sel { background: var(--azul); color: #fff; border-color: var(--azul); }
+
+.menu-mais { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.menu-mais button { text-align: left; padding: 16px; border-radius: 12px; border: 1px solid var(--borda); background: var(--cartao); color: var(--texto); font: inherit; }
+.menu-mais button span { font-size: 1.4rem; display: block; margin-bottom: 4px; }
+
+.aviso {
+  position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  background: var(--texto); color: var(--fundo); padding: 10px 16px; border-radius: 10px; z-index: 20; max-width: calc(100% - 32px);
+}
+.aviso.erro { background: var(--vermelho); color: #fff; }
+dialog { border: 0; border-radius: 14px; padding: 18px; width: min(460px, calc(100% - 32px)); background: var(--cartao); color: var(--texto); }
+dialog::backdrop { background: rgba(0,0,0,.45); }
+
+.login { max-width: 420px; margin: 40px auto; text-align: center; }
+.login .lista button { width: 100%; }
+.vazio { text-align: center; color: var(--suave); padding: 24px 0; }
+
+/* Caixa */
+.barra-caixa {
+  display: flex; justify-content: space-between; gap: 8px; width: 100%; margin-bottom: 10px; padding: 10px 12px;
+  border: 1px solid var(--borda); border-radius: 10px; background: var(--azul-claro); color: var(--azul); font: inherit; font-size: .88rem; text-align: left; cursor: pointer;
+}
+.grade-cedulas { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 6px; margin-bottom: 8px; }
+.grade-cedulas label { margin: 0; }
+details summary { list-style-position: inside; }
+
+/* PIN */
+.pin-pontos { display: flex; justify-content: center; gap: 14px; margin: 14px 0 18px; }
+.pin-pontos span { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--azul); }
+.pin-pontos span.cheio { background: var(--azul); }
+.teclado { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 280px; margin: 0 auto; }
+.teclado button {
+  height: 60px; border-radius: 14px; border: 1px solid var(--borda); background: var(--fundo); color: var(--texto);
+  font: inherit; font-size: 1.5rem; font-weight: 600; cursor: pointer; touch-action: manipulation;
+}
+.teclado button:active { background: var(--azul-claro); }
+.teclado button.sec { font-size: 1.2rem; color: var(--suave); }
+.tremer { animation: tremer .35s; }
+@keyframes tremer { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+[hidden] { display: none !important; }

@@ -1,0 +1,9 @@
+{
+  "name": "Geladão",
+  "short_name": "Geladão",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f6fa",
+  "theme_color": "#0b6fb8",
+  "icons": [{ "src": "icone.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
