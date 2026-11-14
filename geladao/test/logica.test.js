@@ -181,3 +181,37 @@ test('migração adiciona caixa_id em banco antigo', () => {
   const db = abrirBanco(arq);
   assert.ok(db.prepare('PRAGMA table_info(vendas)').all().some((c) => c.name === 'caixa_id'));
 });
+
+test('planilha de estoque: movimento reconstrói estoque inicial/final do período', () => {
+  const { dadosEstoque } = require('../src/planilhas');
+  const { gerarXlsx } = require('../src/xlsx');
+  const db = abrirBanco(':memory:');
+  const L = criarLogica(db);
+  const ana = L.salvarPessoa({ nome: 'Ana', socio: true, vendedor: true });
+  const p = L.salvarProduto({ nome: 'Cerveja <Lata> & Cia', preco_venda: 600 });
+  L.abrirCaixa({ pessoa_id: ana.id, fundo_inicial: 0 });
+  // ontem: entrada de 10 e venda de 2
+  L.registrarCompra({ metodo_pagamento: 'pix', pago_por: ana.id, itens: [{ produto_id: p.id, quantidade: 10, custo_unitario: 300 }] });
+  L.registrarVenda({ vendedor_id: ana.id, itens: [{ produto_id: p.id, quantidade: 2 }], pagamentos: [{ metodo: 'pix', valor: 1200 }] });
+  db.exec("UPDATE compras SET data=datetime('now','localtime','-1 day'); UPDATE vendas SET data=datetime('now','localtime','-1 day')");
+  // hoje: venda de 3 e perda de 1
+  L.registrarVenda({ vendedor_id: ana.id, itens: [{ produto_id: p.id, quantidade: 3 }], pagamentos: [{ metodo: 'pix', valor: 1800 }] });
+  L.registrarPerda({ produto_id: p.id, quantidade: 1, motivo: 'quebrado' });
+
+  const hoje = db.prepare("SELECT date('now','localtime') AS d").get().d;
+  const ontem = db.prepare("SELECT date('now','localtime','-1 day') AS d").get().d;
+  const [atual, mov, lotes] = dadosEstoque(db, L, { de: hoje, ate: hoje });
+  assert.equal(atual.linhas[0].estoque, 4);
+  assert.equal(atual.linhas[0].valor_custo, 12);
+  const m = mov.linhas[0];
+  assert.deepEqual([m.inicio, m.entradas, m.vendidos, m.perdas, m.fim], [8, 0, 3, 1, 4]);
+  assert.equal(m.faturamento, 18);
+  assert.equal(m.lucro, 9);
+  // só ontem: começa em 0, termina em 8
+  const m2 = dadosEstoque(db, L, { de: ontem, ate: ontem })[1].linhas[0];
+  assert.deepEqual([m2.inicio, m2.entradas, m2.vendidos, m2.fim], [0, 10, 2, 8]);
+  assert.equal(lotes.linhas[0].restante, 4);
+
+  const buf = gerarXlsx(dadosEstoque(db, L, {}));
+  assert.equal(buf.readUInt32LE(0), 0x04034b50); // assinatura ZIP
+});

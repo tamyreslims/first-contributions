@@ -7,6 +7,7 @@ const path = require('node:path');
 const os = require('node:os');
 const { abrirBanco } = require('./db');
 const { criarLogica } = require('./logica');
+const { planilhaEstoque } = require('./planilhas');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -45,6 +46,10 @@ function criarServidor(db) {
     ['POST', '/api/caixa/abrir', (_, b) => L.abrirCaixa(b)],
     ['POST', '/api/caixa/movimento', (_, b) => L.movimentarCaixa(b)],
     ['POST', '/api/caixa/fechar', (_, b) => L.fecharCaixa(b)],
+    ['GET', '/api/planilhas/estoque', (_, __, q) => ({
+      arquivo: planilhaEstoque(db, L, q),
+      nome: `geladao-estoque_${q.de && q.de !== '0000-01-01' ? q.de : 'inicio'}_a_${q.ate && q.ate !== '9999-12-31' ? q.ate : 'hoje'}.xlsx`,
+    })],
     ['GET', '/api/alertas', (_, __, q) => L.alertas(q.dias ? Number(q.dias) : 7)],
   ].map(([m, padrao, h]) => {
     const nomes = [];
@@ -100,6 +105,15 @@ function criarServidor(db) {
     try {
       const corpo = ['POST', 'PUT'].includes(req.method) ? await lerCorpo(req) : {};
       const resultado = rota.h(params, corpo, Object.fromEntries(url.searchParams));
+      if (resultado && Buffer.isBuffer(resultado.arquivo)) {
+        res.writeHead(200, {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': `attachment; filename="${resultado.nome}"`,
+          'Content-Length': resultado.arquivo.length,
+          'Cache-Control': 'no-store',
+        });
+        return res.end(resultado.arquivo);
+      }
       responder(res, req.method === 'POST' ? 201 : 200, resultado);
     } catch (e) {
       if (!e.status) console.error(e);

@@ -394,7 +394,8 @@ const App = (() => {
     const [r, socio, vendas, despesas] = await Promise.all([api('GET', '/api/relatorios/resumo' + q), api('GET', '/api/relatorios/socios' + q),
       api('GET', '/api/vendas' + q), api('GET', '/api/despesas' + q)]);
     const per = { hoje: 'Hoje', '7d': '7 dias', mes: 'Este mês', mespassado: 'Mês passado', tudo: 'Tudo', custom: 'Escolher' };
-    $('#tela').innerHTML = `<h2>Relatórios</h2>
+    $('#tela').innerHTML = `<div class="entre"><h2>Relatórios</h2>
+        <a class="btn peq" href="/api/planilhas/estoque${q}" download>⬇ Planilha de estoque</a></div>
       <div class="chips">${Object.entries(per).map(([k, v]) => `<button class="${S.periodo === k ? 'sel' : ''}" onclick="App.setPeriodo('${k}')">${v}</button>`).join('')}</div>
       ${S.periodo === 'custom' ? `<div class="linha"><label>De<input type="date" id="r-de" value="${de}" onchange="App.setDatas()"></label><label>Até<input type="date" id="r-ate" value="${ate}" onchange="App.setDatas()"></label></div>` : ''}
       <div class="kpis">

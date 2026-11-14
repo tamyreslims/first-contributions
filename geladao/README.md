@@ -28,7 +28,7 @@ Variáveis opcionais: `PORT` (porta, padrão 3000) e `DB_FILE` (caminho do banco
 | **Vender** | Toque nos produtos, ajuste a quantidade, aplique desconto e escolha o pagamento (dinheiro com troco, Pix, débito, crédito ou dividido). A venda baixa o estoque. |
 | **Estoque** | Quantidade, custo, lucro por unidade, margem e próxima validade. Alertas de estoque baixo e de vencimento (7 dias). Registro de perdas (vencido, quebrado, consumo). |
 | **Entrada** | Compra com vários produtos, quem pagou (sócio), forma de pagamento, validade de cada item e custos extras. Mostra o custo final e o lucro por unidade antes de salvar. |
-| **Relatórios** | Faturamento, custo, lucro bruto, perdas, despesas e **lucro final**. Caixa por forma de pagamento, vendas por vendedor, mais vendidos, acerto entre sócios e histórico de vendas (com cancelamento). |
+| **Relatórios** | Faturamento, custo, lucro bruto, perdas, despesas e **lucro final**. Caixa por forma de pagamento, vendas por vendedor, mais vendidos, acerto entre sócios e histórico de vendas (com cancelamento). Botão **⬇ Planilha de estoque** (Excel). |
 | **Mais** | Caixa, cadastro de produtos, sócios/vendedores, tipos de custo extra e despesas gerais. |
 
 ## Regras de cálculo
@@ -44,6 +44,16 @@ Variáveis opcionais: `PORT` (porta, padrão 3000) e `DB_FILE` (caminho do banco
   Dinheiro esperado na gaveta = fundo de troco + vendas em dinheiro + reforços − sangrias.
 - Valores são guardados em centavos para evitar erros de arredondamento.
 
+## Planilha de estoque (Excel)
+
+Em **Relatórios**, escolha o período e toque em **⬇ Planilha de estoque**. O arquivo `.xlsx` tem 3 abas:
+
+1. **Estoque atual**: quantidade, mínimo, situação, custo médio, preço, lucro/un., margem, valor parado (custo e venda) e próxima validade.
+2. **Movimento no período**: por produto, estoque inicial, entradas, vendidos, perdas e estoque final, com custo, faturamento e lucro.
+3. **Lotes e validades**: cada lote com saldo, quem pagou, custo pago + custos extras, validade e dias para vencer.
+
+Abre no Excel, no Google Planilhas e no LibreOffice, com filtros, cabeçalho fixo e configuração para impressão em paisagem.
+
 ## Testes
 
 ```bash
@@ -57,6 +67,8 @@ geladao/
 ├── src/
 │   ├── db.js        # tabelas SQLite
 │   ├── logica.js    # regras de negócio
+│   ├── planilhas.js # dados das planilhas
+│   ├── xlsx.js      # gerador de Excel (sem dependências)
 │   └── server.js    # servidor HTTP + API
 ├── public/          # app web (HTML/CSS/JS)
 └── test/            # testes automatizados
@@ -67,4 +79,4 @@ geladao/
 - Login com PIN por vendedor
 - Hospedar na nuvem para acessar fora do Wi-Fi
 - Leitor de código de barras (quando tiver o leitor)
-- Exportar relatórios para planilha
+- Mais planilhas (vendas, entradas, caixa, sócios)

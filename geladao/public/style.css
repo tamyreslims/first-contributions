@@ -68,7 +68,7 @@ input, select, textarea {
 }
 input:focus, select:focus { outline: 2px solid var(--azul); border-color: transparent; }
 
-.btn { font: inherit; border: 0; border-radius: 10px; padding: 11px 16px; background: var(--azul); color: #fff; font-weight: 600; cursor: pointer; }
+.btn { display: inline-block; text-decoration: none; font: inherit; border: 0; border-radius: 10px; padding: 11px 16px; background: var(--azul); color: #fff; font-weight: 600; cursor: pointer; }
 .btn.sec { background: var(--azul-claro); color: var(--azul); }
 .btn.perigo { background: var(--vermelho-fundo); color: var(--vermelho); }
 .btn.peq { padding: 6px 10px; font-size: .85rem; }
